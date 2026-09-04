@@ -1,0 +1,26 @@
+{
+  // Tailwind v4 is configured in CSS. Without this, every @theme and @utility
+  // in tokens.css and typography.css is underlined as an unknown at-rule.
+  "css.lint.unknownAtRules": "ignore",
+  "scss.lint.unknownAtRules": "ignore",
+
+  // Class names live inside string literals, so completion has to run there.
+  "editor.quickSuggestions": {
+    "strings": "on"
+  },
+
+  // Recognise class strings held in constants rather than written inline —
+  // BASE, TOGGLE, DESKTOP_LINK, STAGGER_ENTER and the rest. The first pattern
+  // matches this project's SCREAMING_CASE names; the second is the common
+  // camelCase convention, kept so either style is covered.
+  "tailwindCSS.experimental.classRegex": [
+    [
+      "[A-Z][A-Z0-9_]*\\s*=\\s*([^;]+)",
+      "['\"`]([^'\"`]*?)['\"`]"
+    ],
+    [
+      "[a-zA-Z0-9_-]*(?:Style|Class)\\s*=\\s*([^;]+)",
+      "['\"`]([^'\"`]*?)['\"`]"
+    ]
+  ]
+}

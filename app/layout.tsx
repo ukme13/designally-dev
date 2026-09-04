@@ -1,5 +1,10 @@
 import type { Metadata } from "next";
-import { EB_Garamond, IBM_Plex_Sans_Thai, Poppins } from "next/font/google";
+import {
+  Caveat,
+  EB_Garamond,
+  IBM_Plex_Sans_Thai,
+  Poppins,
+} from "next/font/google";
 
 import SiteFooter from "@/app/_components/site-footer";
 import ScrollToTop from "@/app/_components/scroll-to-top";
@@ -17,6 +22,13 @@ const poppins = Poppins({
   variable: "--font-poppins",
   subsets: ["latin"],
   weight: ["400", "500", "600"],
+});
+
+/** Complementary handwritten face. Regular and Medium only, per the brand book. */
+const caveat = Caveat({
+  variable: "--font-caveat",
+  subsets: ["latin"],
+  weight: ["400", "500"],
 });
 
 const ibmPlexSansThai = IBM_Plex_Sans_Thai({
@@ -44,7 +56,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`${ebGaramond.variable} ${poppins.variable} ${ibmPlexSansThai.variable} h-full antialiased`}
+      className={`${ebGaramond.variable} ${poppins.variable} ${ibmPlexSansThai.variable} ${caveat.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
         <a

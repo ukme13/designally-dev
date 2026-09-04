@@ -73,6 +73,25 @@
 
   --tracking-label: 0.02em;
 
+  /* Accent scale — Caveat. Roughly 1.2x the Poppins equivalent, because
+     Caveat's small x-height makes it read smaller at the same pixel size.
+     Leading tightens as the size grows. */
+  --text-accent-xs: 1rem;
+  --text-accent-xs--line-height: 1.45;
+  --text-accent-sm: 1.25rem;
+  --text-accent-sm--line-height: 1.4;
+  --text-accent-md: 1.5rem;
+  --text-accent-md--line-height: 1.35;
+  --text-accent-lg: 2rem;
+  --text-accent-lg--line-height: 1.3;
+  --text-accent-lg--letter-spacing: 0.005em;
+  --text-accent-xl: 2.75rem;
+  --text-accent-xl--line-height: 1.25;
+  --text-accent-xl--letter-spacing: 0.01em;
+  --text-accent-2xl: 3.75rem;
+  --text-accent-2xl--line-height: 1.15;
+  --text-accent-2xl--letter-spacing: 0.01em;
+
   --font-weight-regular: 400;
   --font-weight-medium: 500;
   --font-weight-semibold: 600;
@@ -176,6 +195,7 @@
   --font-display: var(--font-eb-garamond);
   --font-body: var(--font-poppins);
   --font-thai: var(--font-ibm-plex-sans-thai);
+  --font-accent: var(--font-caveat);
   --font-sans: var(--font-poppins);
 
   --color-surface-base: var(--surface-base);

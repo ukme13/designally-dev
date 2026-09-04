@@ -135,7 +135,7 @@ export default function HeaderShell({
           barHidden ? "-translate-y-full" : "translate-y-0"
         }`}
       >
-        <div className="mx-auto flex h-20 w-full max-w-page items-center justify-between gap-6 px-gutter-mobile md:px-gutter-tablet lg:h-30 xl:px-gutter-desktop">
+        <div className="mx-auto flex h-20 w-full max-w-page items-center justify-between gap-6 px-gutter-mobile md:px-gutter-tablet lg:h-section-tablet xl:px-gutter-desktop">
           <Link href="/" aria-label="Designally home" className="flex shrink-0 items-center">
             {wordmark}
           </Link>
