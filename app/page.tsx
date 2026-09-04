@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Arrow from "@/app/_components/arrow";
 import Button from "@/app/_components/button";
 import HeroIntro from "@/app/_components/hero-intro";
+import Showreel from "@/app/_components/showreel";
 import TextLink from "@/app/_components/text-link";
 import { featuredInsights } from "@/app/_lib/insights";
 import { contactHref } from "@/app/_lib/navigation";
@@ -64,9 +65,18 @@ export default function Home() {
           See docs/specs/STARTUP-INTRO.md. */}
       <section
         id="hero"
-        className="relative -mt-20 min-h-svh w-full lg:-mt-30"
+        className="relative -mt-20 min-h-svh w-full lg:-mt-section-tablet"
       >
         <HeroIntro />
+      </section>
+
+      {/* Selected-work showreel. Stage A: the final rectangle with real media
+          and manual controls. See docs/specs/SHOWREEL.md. */}
+      <section
+        id="showreel"
+        className="relative w-full scroll-mt-8 bg-primary-300 py-section-mobile md:py-section-tablet xl:py-section-desktop"
+      >
+        <Showreel />
       </section>
 
       <section

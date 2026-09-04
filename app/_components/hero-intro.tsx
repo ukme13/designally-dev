@@ -1,9 +1,14 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
-import { INTRO, markIntroPlayed, shouldPlayIntro } from "@/app/_lib/intro";
+import {
+  INTRO,
+  markIntroPlayed,
+  markIntroSettled,
+  shouldPlayIntro,
+} from "@/app/_lib/intro";
 
 /**
  * Homepage entrance animation.
@@ -53,6 +58,40 @@ const STATEMENT_BLOCK = "absolute inset-0 pointer-events-none";
  */
 const RISE_CLEARANCE = 48;
 
+/**
+ * Mouse parallax: how far each line may travel from its resting place, line
+ * one first.
+ *
+ * These are PER-AXIS limits, not a radius. x and y are clamped independently,
+ * so the furthest a line can actually get is the corner of its own box —
+ * sqrt(x² + y²), about 22px for the last line rather than 20. Vertical is half
+ * of horizontal throughout, which keeps the gaps between the three lines close
+ * to constant while the horizontal spread still reads as depth.
+ *
+ * The order is line identity, NOT the order they fall in. The entrance array
+ * is deliberately reordered to change the stagger; reordering that must not
+ * silently reassign these depths.
+ */
+const PARALLAX_LIMIT = [
+  { x: 80, y: 40 },
+  { x: 140, y: 70 },
+  { x: 200, y: 100 },
+] as const;
+
+/** Long enough to lag behind the cursor, short enough not to feel like drift. */
+const PARALLAX_DURATION = 0.6;
+const PARALLAX_EASE = "power3.out";
+
+/**
+ * Holds a normalised coordinate inside -1..1.
+ *
+ * Movement is a bounded function of the pointer's position and is never
+ * accumulated, so the text cannot drift away however long the mouse moves.
+ * The clamp covers the one case the maths does not: a pointer event arriving
+ * from a child that overflows the hero, which `whitespace-nowrap` allows.
+ */
+const clampUnit = (value: number) => Math.min(1, Math.max(-1, value));
+
 
 export default function HeroIntro() {
   const rootRef = useRef<HTMLDivElement>(null);
@@ -61,7 +100,13 @@ export default function HeroIntro() {
   const lineOneRef = useRef<HTMLDivElement>(null);
   const lineTwoRef = useRef<HTMLDivElement>(null);
   const lineThreeRef = useRef<HTMLDivElement>(null);
+  /** Layer 3 of each line: the only element mouse parallax writes to. */
+  const parallaxOneRef = useRef<HTMLDivElement>(null);
+  const parallaxTwoRef = useRef<HTMLDivElement>(null);
+  const parallaxThreeRef = useRef<HTMLDivElement>(null);
   const generationRef = useRef(0);
+  /** Gates the parallax effect. Set by finish(), which is the single end. */
+  const [entranceDone, setEntranceDone] = useState(false);
   const pathname = usePathname();
 
   useEffect(() => {
@@ -99,6 +144,17 @@ export default function HeroIntro() {
     const finish = () => {
       restore();
       markIntroPlayed();
+      // Every real ending runs through here — the timeline completing, the
+      // reduced-motion branch, a failed import, the watchdog, and the
+      // immediate call when this load is not one the intro plays on. That last
+      // case is why an internal navigation gets parallax straight away.
+      //
+      // Deliberately not in restore(), which is also the unmount path.
+      setEntranceDone(true);
+      // The same fact, for anything outside this subtree — the showreel's
+      // entrance waits on it. Remembered rather than broadcast, so a component
+      // that mounts later is not left waiting for an event it missed.
+      markIntroSettled();
     };
 
     if (!shouldPlayIntro(pathname)) {
@@ -186,7 +242,11 @@ export default function HeroIntro() {
 
             const heroTop = rootRef.current?.getBoundingClientRect().top ?? 0;
             const risePerLine = lines.map((line) => {
-              const painted = Array.from(line.children).reduce(
+              // Every descendant, not just the children: the tilted paragraph
+              // is a grandchild now that parallax has its own layer, and the
+              // plain wrapper between them has no rotation of its own to
+              // report. Missing it would drop the tilt out of the measurement.
+              const painted = Array.from(line.querySelectorAll("*")).reduce(
                 (lowest, child) =>
                   Math.max(lowest, child.getBoundingClientRect().bottom),
                 line.getBoundingClientRect().bottom,
@@ -320,6 +380,171 @@ export default function HeroIntro() {
     };
   }, [pathname]);
 
+  /*
+    Mouse parallax on the three statement lines.
+
+    A second effect on purpose. The entrance effect's generation token,
+    `cancelled` flag and microtask-deferred restore exist to survive Strict
+    Mode's discarded first pass; keeping parallax out of it means neither has
+    to reason about the other.
+
+    It writes to layer 3 of each line and nothing else. The entrance owns
+    layer 2, the placement owns layer 1 and the tilt lives on the paragraph, so
+    no two things ever share a transform.
+  */
+  useEffect(() => {
+    if (!entranceDone) return;
+
+    const hero = rootRef.current;
+    const layers = [
+      parallaxOneRef.current,
+      parallaxTwoRef.current,
+      parallaxThreeRef.current,
+    ].filter((node): node is HTMLDivElement => node !== null);
+
+    // Requiring the full set keeps each layer aligned with its own limit;
+    // a short array would silently shift the depths up by one.
+    if (!hero || layers.length !== PARALLAX_LIMIT.length) return;
+
+    let cancelled = false;
+    let context: { revert: () => void } | undefined;
+
+    const run = async () => {
+      const { gsap } = await import("gsap");
+
+      // The import resolves on a later tick, by which time this effect may
+      // already have been cleaned up — Strict Mode guarantees it in
+      // development. The cleanup below has nothing to revert at that point, so
+      // a stale resolution must attach no listeners and build no tweens at all
+      // rather than leaving either behind.
+      if (cancelled) return;
+
+      const media = gsap.matchMedia();
+
+      media.add(
+        "(hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference)",
+        () => {
+          /*
+            One paused tween per property per layer, re-aimed by resetTo on
+            each pointer event. Nothing is allocated while the mouse moves, and
+            GSAP's ticker runs only while a tween is actually travelling — so
+            there is no standing animation loop, and none is needed.
+          */
+          const setters = layers.map((layer, index) => ({
+            x: gsap.quickTo(layer, "x", {
+              duration: PARALLAX_DURATION,
+              ease: PARALLAX_EASE,
+            }),
+            y: gsap.quickTo(layer, "y", {
+              duration: PARALLAX_DURATION,
+              ease: PARALLAX_EASE,
+            }),
+            limit: PARALLAX_LIMIT[index],
+          }));
+
+          /*
+            Whether the cursor was over the hero on the previous event.
+
+            `home()` restarts its tweens, so calling it on every event while
+            the pointer is elsewhere on the page would keep the lines
+            perpetually 600ms from home instead of letting them arrive. Only
+            the crossing matters.
+          */
+          let wasInside = false;
+
+          /** Ease everything back to its resting place. */
+          const home = () => {
+            wasInside = false;
+            for (const setter of setters) {
+              setter.x(0);
+              setter.y(0);
+            }
+          };
+
+          const onPointerMove = (event: PointerEvent) => {
+            // A hybrid laptop matches (hover: hover) and (pointer: fine) and
+            // can still be touched. Only a mouse should move these.
+            if (event.pointerType !== "mouse") return;
+
+            // Read per event rather than cached: browsers coalesce pointermove
+            // to roughly one per frame, so this is one layout read per frame,
+            // and it stays correct when the page is scrolled or resized
+            // without needing listeners for either.
+            const rect = hero.getBoundingClientRect();
+            if (rect.width === 0 || rect.height === 0) return;
+
+            const inside =
+              event.clientX >= rect.left &&
+              event.clientX <= rect.right &&
+              event.clientY >= rect.top &&
+              event.clientY <= rect.bottom;
+
+            if (!inside) {
+              if (wasInside) home();
+              return;
+            }
+            wasInside = true;
+
+            const nx = clampUnit(
+              ((event.clientX - rect.left) / rect.width) * 2 - 1,
+            );
+            const ny = clampUnit(
+              ((event.clientY - rect.top) / rect.height) * 2 - 1,
+            );
+
+            for (const setter of setters) {
+              setter.x(nx * setter.limit.x);
+              setter.y(ny * setter.limit.y);
+            }
+          };
+
+          /*
+            Listening on the window, but driven entirely by the hero's own
+            rectangle — the test above is what scopes this, not the element the
+            event happens to land on.
+
+            It has to work this way because the header is fixed at z-40 across
+            the top of the hero and swallows the pointer there whatever its
+            background is. Bound to the hero element, moving the cursor into
+            that 80-120px strip fired `pointerleave` and sent the lines home
+            mid-gesture. The rectangle does not care what is painted on top.
+
+            No extra cost while the pointer is elsewhere: the handler reads one
+            rect, fails the bounds test and returns.
+          */
+          window.addEventListener("pointermove", onPointerMove);
+          // Two ways the pointer can stop being over the hero without another
+          // move event: the gesture being cancelled by the browser, and the
+          // pointer leaving the document or the window losing focus with the
+          // cursor still inside. The last matters because nothing follows an
+          // alt-tab, so without it the lines would stay held off-centre.
+          window.addEventListener("pointercancel", home);
+          document.addEventListener("pointerleave", home);
+          window.addEventListener("blur", home);
+
+          return () => {
+            window.removeEventListener("pointermove", onPointerMove);
+            window.removeEventListener("pointercancel", home);
+            document.removeEventListener("pointerleave", home);
+            window.removeEventListener("blur", home);
+          };
+        },
+      );
+
+      context = media;
+    };
+
+    void run();
+
+    return () => {
+      cancelled = true;
+      // One call does all three: runs the cleanup above, kills the tweens
+      // created inside the context, and reverts the inline transforms they
+      // wrote — so the lines are left exactly where the stylesheet puts them.
+      context?.revert();
+    };
+  }, [entranceDone]);
+
   return (
     <div ref={rootRef} className="absolute inset-0 overflow-hidden">
       {/* Base. Solid orange, permanently beneath the gradient. */}
@@ -337,26 +562,29 @@ export default function HeroIntro() {
       {/* Permanent statement. Real text, so it is left readable by assistive
           technology rather than hidden as decoration.
 
-          Two elements per line, and the split is the point:
+          Four elements per line, and the split is the point — no two things
+          may share a transform:
 
-            outer  the motion wrapper. It owns the ref, `intro-line` and the
-                   placement. GSAP animates this and nothing else, and the CSS
-                   pre-paint and fallback rules target this.
-            inner  the type. Typography, colour, alignment and tilt. GSAP never
-                   sees it, so nothing here is touched by the timeline.
+            1 position   absolute top/left/right/bottom. Nothing animates it.
+            2 entrance   owns the ref and `intro-line`. The timeline writes y
+                         here; the CSS pre-paint and fallback rules target it.
+            3 parallax   mouse-driven x and y. Nothing else touches it.
+            4 type       typography, colour, alignment and the tilt. No GSAP
+                         target ever.
 
-          Anything that is a transform belongs on the inner element. Put a
-          `rotate-*` on the wrapper instead and GSAP folds it into its own
-          matrix, which both rotates the fall and loses the angle at the end.
+          Anything that is a transform belongs on the type element. Put a
+          `rotate-*` on an animated wrapper instead and GSAP folds it into its
+          own matrix, which both rotates the movement and loses the angle at
+          the end.
 
-          Placement — on the OUTER element:
+          Placement — on element 1:
             position  top-[18%] | bottom-[12%], plus a gutter utility
                       (left-gutter-mobile md:left-gutter-tablet xl:left-gutter-desktop)
                       Percentages track the hero height, so the arrangement
                       holds at every viewport size.
           Keep `intro-line` — the reduced-motion rule targets it.
 
-          Styling — on the INNER element:
+          Styling — on element 4:
             family    font-display | font-body | font-accent
             size      an arbitrary font size — `text-` plus a clamp() of
                       min, preferred, max in square brackets. The vw figure in
@@ -374,29 +602,44 @@ export default function HeroIntro() {
           The closing word carries `font-display` so the italic is EB Garamond
           against Poppins; Poppins has no italic loaded and would be faked. */}
       <div className={STATEMENT_BLOCK}>
-        <div
-          ref={lineOneRef}
-          className="intro-line whitespace-nowrap absolute bottom-[20%] left-gutter-mobile md:left-gutter-tablet xl:left-[-5%]"
-        >
-          <p className="-rotate-8 text-left font-body font-regular text-[clamp(7rem,12vw,20rem)] leading-[0.95] tracking-tight text-primary-250">
-            Make it <i className="font-display">Right</i>
-          </p>
+        {/* 1 — position */}
+        <div className="whitespace-nowrap absolute bottom-[20%] left-gutter-mobile md:left-gutter-tablet xl:left-[-5%]">
+          {/* 2 — entrance */}
+          <div ref={lineOneRef} className="intro-line">
+            {/* 3 — parallax */}
+            <div ref={parallaxOneRef}>
+              {/* 4 — type */}
+              <p className="-rotate-8 text-left font-body font-regular text-[clamp(7rem,12vw,20rem)] leading-[0.95] tracking-tight text-primary-250/50">
+                Make it <i className="font-display">Right</i>
+              </p>
+            </div>
+          </div>
         </div>
-        <div
-          ref={lineTwoRef}
-          className="intro-line whitespace-nowrap absolute bottom-[5%] right-gutter-mobile md:right-gutter-tablet xl:right-[-10%]"
-        >
-          <p className="rotate-4 text-right font-body font-light text-[clamp(7rem,12vw,20rem)] leading-[0.95] tracking-tight text-primary-300">
-            Make it <i className="font-display">Simple</i>
-          </p>
+        {/* 1 — position */}
+        <div className="whitespace-nowrap absolute bottom-[5%] right-gutter-mobile md:right-gutter-tablet xl:right-[-10%]">
+          {/* 2 — entrance */}
+          <div ref={lineTwoRef} className="intro-line">
+            {/* 3 — parallax */}
+            <div ref={parallaxTwoRef}>
+              {/* 4 — type */}
+              <p className="rotate-4 text-right font-body font-light text-[clamp(7rem,12vw,20rem)] leading-[0.95] tracking-tight text-primary-300">
+                Make it <i className="font-display">Simple</i>
+              </p>
+            </div>
+          </div>
         </div>
-        <div
-          ref={lineThreeRef}
-          className="intro-line whitespace-nowrap absolute bottom-[-7%] left-gutter-mobile md:left-gutter-tablet xl:left-[8%]"
-        >
-          <p className="rotate-3 text-left font-body font-medium text-[clamp(7rem,12vw,20rem)] leading-[0.95] tracking-tight text-primary-350">
-            Make it <i className="font-display">Work</i>
-          </p>
+        {/* 1 — position */}
+        <div className="whitespace-nowrap absolute bottom-[-7%] left-gutter-mobile md:left-gutter-tablet xl:left-[8%]">
+          {/* 2 — entrance */}
+          <div ref={lineThreeRef} className="intro-line">
+            {/* 3 — parallax */}
+            <div ref={parallaxThreeRef}>
+              {/* 4 — type */}
+              <p className="rotate-3 text-left font-body font-medium text-[clamp(7rem,12vw,20rem)] leading-[0.95] tracking-tight text-primary-350">
+                Make it <i className="font-display">Work</i>
+              </p>
+            </div>
+          </div>
         </div>
       </div>
 

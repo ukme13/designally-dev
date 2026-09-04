@@ -59,3 +59,50 @@ export function shouldPlayIntro(currentPath: string): boolean {
 export function markIntroPlayed(): void {
   hasPlayed = true;
 }
+
+/* ---------------------------------------------------------------------------
+   Settled signal.
+
+   The showreel's entrance waits on the hero's, but the two live in different
+   subtrees and mount independently. A one-time event would not do: the
+   showreel can subscribe after the entrance has already finished — on an
+   internal navigation it finishes synchronously, before the showreel's effects
+   run at all — and would then wait forever for something that already
+   happened.
+
+   So the fact is remembered, and a late subscriber is told immediately.
+--------------------------------------------------------------------------- */
+
+let settled = false;
+const settledListeners = new Set<() => void>();
+
+/** True once the entrance has ended by any path, or was never going to run. */
+export function isIntroSettled(): boolean {
+  return settled;
+}
+
+/**
+ * Raised by every real ending: the timeline completing, reduced motion, a
+ * failed GSAP import, the watchdog, and a load the intro does not play on.
+ * Idempotent — later calls do nothing.
+ */
+export function markIntroSettled(): void {
+  if (settled) return;
+  settled = true;
+  for (const listener of settledListeners) listener();
+}
+
+/**
+ * Notified when the entrance settles, or immediately if it already has.
+ * Returns an unsubscribe function.
+ */
+export function subscribeIntroSettled(listener: () => void): () => void {
+  if (settled) {
+    listener();
+    return () => {};
+  }
+  settledListeners.add(listener);
+  return () => {
+    settledListeners.delete(listener);
+  };
+}

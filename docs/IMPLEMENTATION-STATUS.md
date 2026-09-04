@@ -84,6 +84,19 @@ its own start distance from what is painted rather than from its layout box.
 Placement, size, weight, colour and tilt are all editable per line. Full
 specification in `docs/specs/STARTUP-INTRO.md`.
 
+### Homepage showreel
+
+A selected-work video carousel in `#showreel`, below the hero, with a one-time
+branded entrance: 144 orange pixel cells clear from the centre outward inside a
+true circle, the circle holds, then it opens into the final 16:9 rounded
+rectangle — 1,100 / 900 / 800 ms. Four optimised films with real extracted
+posters, 2,989,567 bytes in total (2.99 MB decimal / 2.85 MiB binary). No video
+is fetched until the section approaches the viewport, playback pauses off
+screen, and every clip loops between its own configured in and out points
+rather than replaying its opening and end card. Reduced motion gets the static
+poster in the final rectangle and fetches nothing. Full specification in
+`docs/specs/SHOWREEL.md`.
+
 ### Footer
 
 Reproduces the original closing block: white wave divider, "Let's work
@@ -110,6 +123,11 @@ invented facts.
 Recovered from the current website, held in one constant each so they are
 cheap to correct:
 
+- **Client permission for the four showreel films — Laga, Nourigo, INN News,
+  Bitazza.** The section publishes four client names and their media, and no
+  permission record exists for any of them. The films were served from the live
+  site, which is evidence of past use, not of current permission to reuse. This
+  blocks launch, not development.
 - `hello@designally.co` — `app/_lib/navigation.ts`
 - Telephone `0650055993` — `app/_lib/navigation.ts`, not currently displayed
 - Company name `Designally Co., Ltd.` — used in the footer
@@ -135,6 +153,13 @@ remain on the brief's "evidence needed before launch" list.
 - Situation pages, and the `/branding-agency-thailand/` page. Both are phase
   two in the sitemap.
 - Automated tests and a formatter. Neither is configured.
+
+### Showreel, not built
+
+- Crossfade between projects. `crossfadeAt` is recorded per project and unread;
+  the current stage holds the final frame instead.
+- Automatic carousel advancement.
+- `tryStartCrossfade()` — specified and agreed, not written.
 
 ### Waiting on visual review
 

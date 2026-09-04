@@ -68,11 +68,41 @@ Tell us what's changing
 **Secondary action**  
 View selected work
 
-### Visual direction
+### Visual direction — decided
 
-Use one strong, art-directed visual idea. It may combine selected work, motion,
-or a simple brand statement. Avoid a generic agency showreel that delays the
-message or creates a very large download.
+**Approved: an art-directed carousel of selected project videos**, in the
+`#showreel` section below the hero. Full specification in `SHOWREEL.md`.
+
+The original warning still stands and is the reason for every constraint below.
+A generic agency showreel that delays the message or creates a very large
+download remains the thing to avoid. What is approved is the opposite of that:
+a motion showcase built from real project media that supports the brand message
+rather than replacing or delaying it.
+
+The decision, in the terms it has to be held to:
+
+- The H1 and the introduction remain normal HTML text, never text inside an
+  image or video. Project names, stages and services are also real text beside
+  the film, not information available only inside it.
+- The showreel must stay lightweight. All four optimised films plus their
+  posters total 2,989,567 bytes — 2.99 MB decimal, 2.85 MiB binary — and the
+  page loads **no video at all** until the section approaches the viewport.
+  Media is loaded progressively: the current film, and at most one prepared
+  next film. Never all four at once.
+- It must not delay the main brand message or make the page difficult to use.
+  Nothing waits on it; the page is server-rendered with its real content and is
+  usable throughout.
+- The special pixel and circle-morph entrance runs **once per page load**.
+  Changing project afterwards does not replay it.
+- Later project changes use a simple opacity crossfade — planned, not yet
+  built.
+- Reduced-motion visitors receive a clear static final state: the approved
+  poster in the final rectangle, no entrance animation, no autoplay, and no
+  video fetched at all.
+
+**Client permission remains outstanding.** The section publishes four client
+names and their media, and no permission record exists for any of them. This
+does not block development. It blocks launch.
 
 ### Build notes
 
