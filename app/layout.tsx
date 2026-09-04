@@ -7,21 +7,27 @@ import {
 } from "next/font/google";
 
 import SiteFooter from "@/app/_components/site-footer";
+import IntroCoordinator from "@/app/_components/intro-coordinator";
 import ScrollToTop from "@/app/_components/scroll-to-top";
 import SiteHeader from "@/app/_components/site-header";
 import { siteUrl } from "@/app/_lib/site";
 import "./globals.css";
 
+/** Italic is loaded because the display face uses it as a brand accent —
+ *  the hero statement and the footer headline both set a word in italic. */
 const ebGaramond = EB_Garamond({
   variable: "--font-eb-garamond",
   subsets: ["latin"],
   weight: ["400", "500", "600"],
+  style: ["normal", "italic"],
 });
 
+/** The hero statement sets each line at a different weight, so the extremes
+ *  are loaded too. Without them the browser synthesises the missing cuts. */
 const poppins = Poppins({
   variable: "--font-poppins",
   subsets: ["latin"],
-  weight: ["400", "500", "600"],
+  weight: ["100", "300", "400", "500", "600", "700"],
 });
 
 /** Complementary handwritten face. Regular and Medium only, per the brand book. */
@@ -57,7 +63,33 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html
       lang="en"
       className={`${ebGaramond.variable} ${poppins.variable} ${ibmPlexSansThai.variable} ${caveat.variable} h-full antialiased`}
+      /* The head script below sets `data-intro` before React hydrates, so the
+         server markup and the live document differ on this element by design.
+         Suppression applies to this element only, not its subtree. */
+      suppressHydrationWarning
     >
+      <head>
+        {/*
+          Hides the header before the first paint, so its background never
+          flashes above the hero. The browser runs this synchronously while
+          parsing, ahead of any body content.
+
+          It runs only on a full page load of the homepage — an inline script
+          cannot run on a client-side navigation, which is exactly the
+          condition the intro needs. If scripting is unavailable it never runs,
+          the attribute is never set, and the header renders normally.
+
+          <html> carries suppressHydrationWarning because this attribute is
+          absent from the server markup by design. See
+          node_modules/next/dist/docs — guides/preventing-flash-before-hydration.
+        */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              '(function(){try{if(location.pathname==="/"&&!matchMedia("(prefers-reduced-motion: reduce)").matches){document.documentElement.setAttribute("data-intro","running")}}catch(e){}})()',
+          }}
+        />
+      </head>
       <body className="min-h-full flex flex-col">
         <a
           href="#main"
@@ -65,9 +97,13 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         >
           Skip to content
         </a>
+        <IntroCoordinator />
         <ScrollToTop />
         <SiteHeader />
-        <main id="main" className="grow overflow-hidden">
+        {/* overflow-x-clip, not overflow-hidden: the homepage hero extends
+            above this box, and `hidden` on one axis forces the other to `auto`,
+            which would make this a scroll container. `clip` has no such rule. */}
+        <main id="main" className="grow overflow-x-clip">
           {children}
         </main>
         <SiteFooter />

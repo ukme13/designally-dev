@@ -13,6 +13,10 @@ import {
 
 import {
   CIRCLE_TOGGLE,
+  ICON_SWAP,
+  ICON_SWAP_BOX,
+  ICON_SWAP_IN,
+  ICON_SWAP_OUT,
   MENU_PANEL,
   MENU_PANEL_CLOSED,
   MENU_PANEL_OPEN,
@@ -53,6 +57,30 @@ type HeaderShellProps = {
 };
 
 /**
+ * The bars and the cross, both mounted, one on top of the other.
+ *
+ * Whichever belongs to the current state turns upright, grows to full size and
+ * fades in while the other turns away, shrinks and fades out. Swapping the two
+ * class sets reverses the movement on close without a second rule.
+ *
+ * The wrapper is exactly the size of the icon it replaces, so the button's own
+ * size, border and centring are untouched. Both icons carry aria-hidden of
+ * their own; the button's sr-only label is what is announced.
+ */
+function ToggleIcons({ open }: { open: boolean }) {
+  return (
+    <span className={ICON_SWAP_BOX}>
+      <MenuBarsIcon
+        className={`${ICON_SWAP} ${open ? ICON_SWAP_OUT : ICON_SWAP_IN}`}
+      />
+      <CloseIcon
+        className={`${ICON_SWAP} ${open ? ICON_SWAP_IN : ICON_SWAP_OUT}`}
+      />
+    </span>
+  );
+}
+
+/**
  * Interactive chrome for the site header.
  *
  * Desktop (>=1024px) reproduces the original two-part system: a 120px bar in
@@ -87,7 +115,7 @@ export default function HeaderShell({
   const floatingRef = useRef<HTMLDivElement>(null);
   const topMenuRef = useRef<HTMLDivElement>(null);
 
-  const { revealed, barHidden } = useScrollState(revealAfter);
+  const { revealed, barHidden, atTop } = useScrollState(revealAfter);
   const pathname = usePathname();
 
   const closeTopMenu = useCallback(() => setTopMenuOpen(false), []);
@@ -129,11 +157,25 @@ export default function HeaderShell({
         Top bar. Fixed below 768px, where it hides on the way down and returns
         on the way up; in normal flow above that, where it scrolls away and the
         floating header takes over.
+
+        Background, below md only: transparent while the page rests at the top,
+        so the homepage gradient runs unbroken behind it, and surface-base once
+        the reader has scrolled and there is content to sit against. From md up,
+        `md:bg-transparent` is inside a media query and so is emitted after both
+        base utilities — tablet and desktop stay transparent either way.
+
+        One transition covers the slide and the colour. Two utilities would not:
+        `transition-transform` and `transition-colors` both write
+        transition-property, so whichever the stylesheet emits last would be the
+        only one that ran. `translate` is named explicitly because that is the
+        property Tailwind v4's translate-y-* utilities set — `transform` alone
+        would leave the hide-on-scroll with nothing to animate.
       */}
       <header
-        className={`fixed inset-x-0 top-0 z-40 bg-surface-base transition-transform duration-300 ease-standard motion-reduce:transition-none md:static md:translate-y-0 md:bg-transparent ${
+        data-site-header=""
+        className={`fixed inset-x-0 top-0 z-40 transition-[transform,translate,background-color] duration-300 ease-standard motion-reduce:transition-none md:relative md:translate-y-0 md:bg-transparent ${
           barHidden ? "-translate-y-full" : "translate-y-0"
-        }`}
+        } ${atTop ? "bg-transparent" : "bg-surface-base"}`}
       >
         <div className="mx-auto flex h-20 w-full max-w-page items-center justify-between gap-6 px-gutter-mobile md:px-gutter-tablet lg:h-section-tablet xl:px-gutter-desktop">
           <Link href="/" aria-label="Designally home" className="flex shrink-0 items-center">
@@ -156,7 +198,7 @@ export default function HeaderShell({
               aria-controls="top-menu"
               className={`${CIRCLE_TOGGLE} lg:hidden`}
             >
-              {topMenuOpen ? <CloseIcon className="size-6" /> : <MenuBarsIcon className="size-6" />}
+              <ToggleIcons open={topMenuOpen} />
               <span className="sr-only">{topMenuOpen ? "Close menu" : "Open menu"}</span>
             </button>
 
@@ -196,6 +238,7 @@ export default function HeaderShell({
       */}
       <div
         ref={floatingRef}
+        data-site-floating=""
         className={`fixed top-0 left-0 z-50 hidden w-full items-start justify-between px-gutter-tablet py-10 transition-all duration-300 ease-standard motion-reduce:transition-none md:flex xl:px-gutter-desktop ${
           revealed
             ? "visible translate-y-0 opacity-100"
@@ -220,7 +263,7 @@ export default function HeaderShell({
             tabIndex={revealed ? undefined : -1}
             className={CIRCLE_TOGGLE}
           >
-            {floatingMenuOpen ? <CloseIcon className="size-6" /> : <MenuBarsIcon className="size-6" />}
+            <ToggleIcons open={floatingMenuOpen} />
             <span className="sr-only">{floatingMenuOpen ? "Close menu" : "Open menu"}</span>
           </button>
 
@@ -245,7 +288,10 @@ export default function HeaderShell({
         aria-label="Site menu"
         inert={!drawerOpen}
         data-open={drawerOpen ? "" : undefined}
-        className={`group fixed inset-0 z-55 bg-surface-base transition-transform duration-500 ease-out motion-reduce:transition-none md:hidden ${
+        /* delay-250 on the way out, so the rows have finished leaving before
+           the panel sweeps up over them; data-open:delay-0 keeps the opening
+           immediate. */
+        className={`group fixed inset-0 z-55 bg-surface-base transition-transform duration-500 delay-250 ease-out data-open:delay-0 motion-reduce:transition-none md:hidden ${
           drawerOpen ? "translate-y-0" : "-translate-y-full"
         }`}
       >

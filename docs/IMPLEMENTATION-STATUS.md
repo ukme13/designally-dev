@@ -1,6 +1,6 @@
 # Implementation Status
 
-Updated: 3 September 2026
+Updated: 4 September 2026
 
 A snapshot of what exists in the codebase, what is placeholder, and what has
 not been started. Read alongside `docs/updates/` for the record of how each
@@ -53,13 +53,36 @@ Reproduces the original site's two-part system:
   menu toggle with a compact dropdown.
 - Desktop: a 120px bar in normal flow with centred navigation and an outlined
   contact button; a floating overlay drops in after 1000px of scroll.
+- Below `md`, the bar is transparent while the page rests at the top — so the
+  homepage gradient runs unbroken behind it — and `bg-surface-base` once
+  scrolled. Derived in the header's existing scroll listener, with two
+  thresholds so the colour cannot flicker at the boundary.
+- The circular toggles cross-fade between the hamburger and the cross: both
+  icons stay mounted and swap by opacity, rotation and scale.
+- Menu rows animate out as well as in. The transition lives in the base state,
+  and the panel delays its own close so the rows can be seen leaving.
 - Accessibility: focus trap, scroll lock, Escape to close, focus restore,
-  `aria-current` on the active page, 44px touch targets, and every animation
-  disabled under `prefers-reduced-motion`.
+  `aria-current` on the active page, 44px touch targets, `inert` on every
+  closed panel, and every animation disabled under `prefers-reduced-motion`.
 - Scroll behaviour on navigation is corrected: Next scrolls to the top of the
   first *page* element, which lands below the in-flow header, so a layout-level
   component sends forward navigations to the document top while leaving
   browser scroll restoration alone.
+
+### Homepage entrance animation
+
+A branded entrance on `/` only, built on GSAP core 3.15.0. The cream-to-orange
+gradient and the statement lines are permanent; only the mask hiding them is
+temporary. The hero runs behind the header so the reveal reaches the top edge
+of the viewport. Plays on a direct load or hard refresh of the homepage, never on
+client-side navigation, without cookies or storage. Reduced motion and
+JavaScript failure both resolve to the finished page immediately.
+
+Each statement line is a motion wrapper plus a paragraph of type, so the tilt
+and the typography sit on an element GSAP never touches, and each line measures
+its own start distance from what is painted rather than from its layout box.
+Placement, size, weight, colour and tilt are all editable per line. Full
+specification in `docs/specs/STARTUP-INTRO.md`.
 
 ### Footer
 
@@ -112,6 +135,17 @@ remain on the brief's "evidence needed before launch" list.
 - Situation pages, and the `/branding-agency-thailand/` page. Both are phase
   two in the sitemap.
 - Automated tests and a formatter. Neither is configured.
+
+### Waiting on visual review
+
+The entrance animation's 250 ms hold, and the statement's size, colour,
+placement and tilt, were chosen from the brief rather than from a design file.
+The sequence runs 3.85 seconds, most of it the two-second navbar fade; that
+length is a decision, not a constraint.
+
+On the header: whether the navbar background's 24px/8px scroll hysteresis suits
+real use, and whether the drawer's 250 ms row exit plus 500 ms sweep reads as
+deliberate or slow. Neither could be judged without a device.
 
 ## Next recommended task
 

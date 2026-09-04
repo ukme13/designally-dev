@@ -14,6 +14,11 @@ import { contactHref, mainNavigation } from "@/app/_lib/navigation";
  *
  * Both marks are brand-orange fills masked by the original SVGs. The files
  * carry their own `fill`, so `currentColor` cannot reach them.
+ *
+ * The wordmark's width comes from `aspect-[536/50]`, the SVG's own viewBox
+ * ratio, rather than a fixed pixel value. The mask is stretched to the box
+ * with `mask-size: 100% 100%`, so a box of the wrong ratio would distort the
+ * lettering — this way the width always follows whatever height is set.
  */
 const WORDMARK_SRC = "/designally-wordmark.svg";
 const MONOGRAM_SRC = "/designally-monogram.svg";
@@ -83,7 +88,7 @@ export default function SiteHeader() {
       wordmark={
         <span
           aria-hidden="true"
-          className="block h-5 w-[214.398px] bg-action-primary"
+          className="block h-4 w-auto aspect-536/50 bg-action-primary sm:h-5"
           style={maskStyle(WORDMARK_SRC)}
         />
       }

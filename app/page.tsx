@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Arrow from "@/app/_components/arrow";
 import Button from "@/app/_components/button";
+import HeroIntro from "@/app/_components/hero-intro";
 import TextLink from "@/app/_components/text-link";
 import { featuredInsights } from "@/app/_lib/insights";
 import { contactHref } from "@/app/_lib/navigation";
@@ -55,10 +56,18 @@ export default function Home() {
           fold. The page's <h1> currently lives in the intro section below; if
           the new hero gets its own heading, move or demote that one so the
           page still has exactly one. */}
+      {/* Hero.
+          Pulled up by exactly the space the header reserves — 80px below lg,
+          120px from lg — and made a full 100svh, so its background runs behind
+          the header to the top edge of the viewport. The negative margin and
+          the extra height cancel, so the section below still begins at 100svh.
+          See docs/specs/STARTUP-INTRO.md. */}
       <section
         id="hero"
-        className="mx-auto flex w-full max-w-page min-h-[calc(100svh-5rem)] items-center px-gutter-mobile md:px-gutter-tablet lg:min-h-[calc(100svh-7.5rem)] xl:px-gutter-desktop"
-      />
+        className="relative -mt-20 min-h-svh w-full lg:-mt-30"
+      >
+        <HeroIntro />
+      </section>
 
       <section
         id="intro"

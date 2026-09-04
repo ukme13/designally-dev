@@ -53,3 +53,201 @@ summary::-webkit-details-marker {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   Homepage entrance animation.
+
+   See docs/specs/STARTUP-INTRO.md. Solid orange is the base layer and the
+   gradient above it is permanent; only the mask that hides it is temporary.
+
+   `data-intro` on <html> is the documented handle the timeline uses to drive
+   the navbar, which lives in the root layout and so is outside the homepage's
+   React subtree. Values: "running" while the reveal is under way, then
+   "navbar" once the header should enter. The attribute is removed when the
+   sequence settles, at which point the header's own styles resume.
+--------------------------------------------------------------------------- */
+
+/*
+  A percentage that can be interpolated.
+*/
+@property --intro-reveal {
+  syntax: "<percentage>";
+  inherits: false;
+  initial-value: 0%;
+}
+
+/*
+  The reveal — STAGE 1.
+
+  The finished gradient never moves, scales or fades. A soft mask uncovers it
+  from the top down; only the boundary travels.
+
+    element     the gradient itself, inset-0, exactly the hero at 100svh
+    mask        200% tall, soft band from 30% to 50% = a 40svh feather
+    position    100% (transparent half over the element, hidden)
+             -> 0%   (opaque half over the element, fully shown)
+
+  The default is the FINISHED state. The hidden start applies only under the
+  pre-paint marker, so an internal navigation paints the completed hero.
+*/
+.intro-gradient {
+  --intro-reveal: 0%;
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    #000 0%,
+    #000 30%,
+    transparent 50%,
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    #000 0%,
+    #000 30%,
+    transparent 50%,
+    transparent 100%
+  );
+  -webkit-mask-size: 100% 200%;
+  mask-size: 100% 200%;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: 0 var(--intro-reveal);
+  mask-position: 0 var(--intro-reveal);
+}
+
+/*
+  Direct homepage load: hold the hidden start, statically.
+
+  The animation here does not move anything. It is a 1ms snap delayed by a
+  safety timeout, so if the timeline never arrives the page still resolves to
+  its finished state. Nothing animates while waiting, which is what previously
+  caused a visible backward jump when GSAP loaded and reset the start position.
+*/
+html[data-intro="running"] .intro-gradient {
+  --intro-reveal: 100%;
+  animation: intro-bail 1ms linear 3000ms forwards;
+}
+
+@keyframes intro-bail {
+  to {
+    --intro-reveal: 0%;
+  }
+}
+
+/*
+  The statement lines — STAGE 2.
+
+  Their hidden, raised start is set here rather than in an effect: an effect
+  runs after the browser can paint, so the server-rendered text would flash in
+  its final position first.
+
+  Static, exactly like the gradient above. Nothing moves while GSAP loads, so
+  the timeline begins from the state already on screen and there is nothing to
+  reset. The animation below is a 1ms snap on a safety timeout, not a
+  reproduction of the fall.
+
+  Default — no marker — is the finished state, so an internal navigation shows
+  all three lines in place immediately.
+*/
+html[data-intro] .intro-line {
+  visibility: hidden;
+  transform: translateY(-100svh);
+}
+
+html[data-intro="running"] .intro-line {
+  animation: intro-line-bail 1ms linear 3000ms forwards;
+}
+
+@keyframes intro-line-bail {
+  to {
+    visibility: visible;
+    transform: none;
+  }
+}
+
+/*
+  The navbar — STAGE 3.
+
+  The whole header is hidden as one element: background, border, shadow, logo
+  and links. Targeted through an explicit hook on the real element rather than
+  the element type, so nothing else can match.
+
+  Static under the marker, like the gradient and the lines. Nothing moves while
+  GSAP loads. The transition is declared on the presence selector so it is
+  already in place when the state changes, but it only fires when the timeline
+  switches the marker to "navbar" — never during load, because the header's
+  first computed style is already the hidden one and transitions do not run on
+  initial style.
+*/
+html[data-intro] [data-site-header] {
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-1rem);
+  transition:
+    opacity 2000ms var(--ease-out),
+    transform 2000ms var(--ease-out);
+}
+
+/* Safety snap if the timeline never arrives. Not a reproduction of the entrance. */
+html[data-intro="running"] [data-site-header] {
+  animation: intro-navbar-bail 1ms linear 3000ms forwards;
+}
+
+@keyframes intro-navbar-bail {
+  to {
+    opacity: 1;
+    visibility: visible;
+    transform: none;
+  }
+}
+
+/* The entrance itself, driven by the timeline at INTRO.navbarStart. */
+html[data-intro="navbar"] [data-site-header] {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+/*
+  The floating header reveals itself on scroll. Suppressed for the whole
+  sequence, so scrolling during the entrance cannot bring it on screen.
+*/
+html[data-intro] [data-site-floating] {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/*
+  Reduced motion: an explicit final state, not a shortened animation. No
+  mask, no movement, no fade, and the header is never hidden. Declared
+  independently of the global reduced-motion rule above.
+*/
+@media (prefers-reduced-motion: reduce) {
+  html[data-intro="running"] .intro-gradient,
+  .intro-gradient {
+    --intro-reveal: 0% !important;
+    animation: none !important;
+  }
+
+  html[data-intro] .intro-line,
+  .intro-line {
+    visibility: visible !important;
+    transform: none !important;
+    animation: none !important;
+  }
+
+  html[data-intro] [data-site-header] {
+    opacity: 1 !important;
+    visibility: visible !important;
+    transform: none !important;
+    transition: none !important;
+    animation: none !important;
+  }
+
+  html[data-intro] [data-site-floating] {
+    opacity: revert-layer !important;
+    visibility: revert-layer !important;
+    pointer-events: revert-layer !important;
+  }
+
+}
