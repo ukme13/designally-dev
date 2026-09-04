@@ -2,7 +2,10 @@ import type { Metadata } from "next";
 import Arrow from "@/app/_components/arrow";
 import Button from "@/app/_components/button";
 import TextLink from "@/app/_components/text-link";
+import { featuredInsights } from "@/app/_lib/insights";
 import { contactHref } from "@/app/_lib/navigation";
+import { featuredProjects } from "@/app/_lib/projects";
+import { services } from "@/app/_lib/services";
 
 export const metadata: Metadata = {
   title: "Designally — Branding & Design Agency in Bangkok",
@@ -40,94 +43,27 @@ const situations = [
   },
 ] as const;
 
-const projects = [
-  {
-    name: "Skytower",
-    stage: "Transformation",
-    services: "Rebranding · Identity · Website",
-    background: "bg-primary-300",
-    foreground: "text-white",
-    mark: "S",
-  },
-  {
-    name: "INN News",
-    stage: "Transformation",
-    services: "Rebranding · Verbal identity · Website",
-    background: "bg-secondary-400",
-    foreground: "text-white",
-    mark: "INN",
-  },
-  {
-    name: "Laga",
-    stage: "Creation",
-    services: "Strategy · Identity · Packaging · Website",
-    background: "bg-text-primary",
-    foreground: "text-white",
-    mark: "L",
-  },
-  {
-    name: "Bitazza",
-    stage: "Growth",
-    services: "Creative partnership · Digital",
-    background: "bg-primary-100",
-    foreground: "text-text-primary",
-    mark: "B",
-  },
-] as const;
 
-const services = [
-  {
-    name: "Brand Strategy",
-    description:
-      "Clarify the market, audience, position, and direction before making visible decisions.",
-  },
-  {
-    name: "Branding & Brand Identity",
-    description:
-      "Turn strategy into a clear verbal and visual system people can recognise and use.",
-  },
-  {
-    name: "Rebranding",
-    description:
-      "Help an established business change without losing what already has value.",
-  },
-  {
-    name: "Websites & Digital Experiences",
-    description:
-      "Create useful digital experiences that express the brand and support the business.",
-  },
-  {
-    name: "Creative Partner",
-    description:
-      "Provide ongoing strategic and creative support as the brand grows and changes.",
-  },
-] as const;
 
-const insights = [
-  {
-    topic: "Rebranding",
-    title: "When Is It Time to Rebrand?",
-    summary:
-      "The signs that a business has moved forward while its brand has stayed behind.",
-  },
-  {
-    topic: "Brand Strategy",
-    title: "Brand Strategy vs Brand Identity",
-    summary:
-      "What each one does, how they work together, and what your business needs first.",
-  },
-  {
-    topic: "Business & Brand",
-    title: "Changing a Family Business Without Losing Its Heritage",
-    summary:
-      "How to protect what matters while preparing the brand for its next generation.",
-  },
-] as const;
 
 export default function Home() {
   return (
     <>
-      <section className="mx-auto grid min-h-[calc(100svh-5rem)] lg:min-h-[calc(100svh-7.5rem)] w-full max-w-page items-center gap-12 px-gutter-mobile py-section-mobile md:px-gutter-tablet lg:grid-cols-12 xl:px-gutter-desktop">
+      {/* Hero.
+          Empty on purpose — new hero content goes here. It keeps the viewport
+          height the previous hero had so the page below still starts at the
+          fold. The page's <h1> currently lives in the intro section below; if
+          the new hero gets its own heading, move or demote that one so the
+          page still has exactly one. */}
+      <section
+        id="hero"
+        className="mx-auto flex w-full max-w-page min-h-[calc(100svh-5rem)] items-center px-gutter-mobile md:px-gutter-tablet lg:min-h-[calc(100svh-7.5rem)] xl:px-gutter-desktop"
+      />
+
+      <section
+        id="intro"
+        className="mx-auto grid w-full max-w-page scroll-mt-8 items-center gap-12 px-gutter-mobile py-section-mobile md:px-gutter-tablet md:py-section-tablet lg:grid-cols-12 xl:px-gutter-desktop xl:py-section-desktop"
+      >
         <div className="lg:col-span-7">
           <p className="mb-8 type-label text-text-muted">
             Strategy-led branding & design agency · Bangkok
@@ -200,7 +136,7 @@ export default function Home() {
           </div>
 
           <div className="mt-16 grid gap-x-6 gap-y-14 md:grid-cols-2">
-            {projects.map((project, index) => (
+            {featuredProjects.map((project, index) => (
               <article key={project.name} className={index % 2 === 1 ? "md:mt-20" : ""}>
                 <div className={`flex aspect-work items-center justify-center overflow-hidden rounded-md ${project.background} ${project.foreground}`}>
                   <span className="font-display text-[clamp(6rem,18vw,15rem)] leading-none" aria-hidden="true">{project.mark}</span>
@@ -261,7 +197,7 @@ export default function Home() {
               <article key={service.name} className="grid gap-5 border-b border-border-default py-8 md:grid-cols-12 md:items-start">
                 <span className="type-small text-text-muted md:col-span-1">{String(index + 1).padStart(2, "0")}</span>
                 <h3 className="type-h1 text-text-primary md:col-span-5">{service.name}</h3>
-                <p className="max-w-lg type-body text-text-body md:col-span-5">{service.description}</p>
+                <p className="max-w-lg type-body text-text-body md:col-span-5">{service.shortPromise}</p>
                 <span className="hidden justify-self-end text-text-primary md:block" aria-hidden="true">↗</span>
               </article>
             ))}
@@ -303,7 +239,7 @@ export default function Home() {
           </div>
 
           <div className="mt-16 grid gap-6 md:grid-cols-3">
-            {insights.map((insight, index) => (
+            {featuredInsights.map((insight, index) => (
               <article key={insight.title} className="flex min-h-96 flex-col rounded-md border border-border-default p-7">
                 <div className="flex items-center justify-between text-xs tracking-label text-text-muted uppercase">
                   <span>{insight.topic}</span>

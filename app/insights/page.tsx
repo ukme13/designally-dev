@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import DraftNotice from "@/app/_components/draft-notice";
 import PageIntro from "@/app/_components/page-intro";
 import Section from "@/app/_components/section";
+import { insights } from "@/app/_lib/insights";
 
 export const metadata: Metadata = {
   title: "Insights",
@@ -11,27 +12,6 @@ export const metadata: Metadata = {
   alternates: { canonical: "/insights/" },
 };
 
-/** The recommended launch set from docs/specs/HOMEPAGE.md. */
-const launchArticles = [
-  {
-    topic: "Rebranding",
-    title: "When Is It Time to Rebrand?",
-    summary:
-      "The signs that a business has moved forward while its brand has stayed behind.",
-  },
-  {
-    topic: "Brand Strategy",
-    title: "Brand Strategy vs Brand Identity: What Does Your Business Need First?",
-    summary:
-      "What each one does, how they work together, and what your business needs first.",
-  },
-  {
-    topic: "Business & Brand",
-    title: "Rebranding a Family Business Without Losing Its Heritage",
-    summary:
-      "How to protect what matters while preparing the brand for its next generation.",
-  },
-] as const;
 
 /** Future topics listed in docs/specs/HOMEPAGE.md. */
 const futureTopics = [
@@ -59,7 +39,7 @@ export default function InsightsPage() {
         </DraftNotice>
 
         <div className="mt-16 grid gap-6 md:grid-cols-3">
-          {launchArticles.map((article, index) => (
+          {insights.map((article, index) => (
             <article
               key={article.title}
               className="flex min-h-96 flex-col rounded-md border border-border-default p-7"

@@ -6,6 +6,7 @@ import DraftNotice from "@/app/_components/draft-notice";
 import PageIntro from "@/app/_components/page-intro";
 import Section from "@/app/_components/section";
 import { contactHref } from "@/app/_lib/navigation";
+import { projects } from "@/app/_lib/projects";
 
 export const metadata: Metadata = {
   title: "Work",
@@ -14,67 +15,6 @@ export const metadata: Metadata = {
   alternates: { canonical: "/works/" },
 };
 
-/**
- * Facts sourced from docs/audits/CURRENT-SITE-INVENTORY.md and
- * docs/specs/HOMEPAGE.md. Business stage is only stated where those documents
- * state it. No outcomes or metrics are published until they are verified.
- */
-const projects = [
-  {
-    name: "Skytower",
-    stage: "Transformation",
-    services: "Rebranding · Identity · Website",
-    industry: "Industrial",
-    background: "bg-primary-300",
-    foreground: "text-white",
-    mark: "S",
-  },
-  {
-    name: "INN News",
-    stage: "Transformation",
-    services: "Rebranding · Verbal identity · Website",
-    industry: "Media",
-    background: "bg-secondary-400",
-    foreground: "text-white",
-    mark: "INN",
-  },
-  {
-    name: "Laga",
-    stage: "Creation",
-    services: "Naming · Strategy · Identity · Packaging · Website",
-    industry: "Consumer products",
-    background: "bg-text-primary",
-    foreground: "text-white",
-    mark: "L",
-  },
-  {
-    name: "Bitazza",
-    stage: "Growth",
-    services: "Creative partnership · Digital",
-    industry: "Financial technology",
-    background: "bg-primary-100",
-    foreground: "text-text-primary",
-    mark: "B",
-  },
-  {
-    name: "Nourigo",
-    stage: "Stage to be confirmed",
-    services: "Brand foundation · Identity",
-    industry: "Consumer products",
-    background: "bg-secondary-200",
-    foreground: "text-text-primary",
-    mark: "N",
-  },
-  {
-    name: "Fatcoco",
-    stage: "Stage to be confirmed",
-    services: "Website design · Development",
-    industry: "Hospitality",
-    background: "bg-neutral-150",
-    foreground: "text-text-primary",
-    mark: "F",
-  },
-] as const;
 
 /** Records identified in the audit that still need review before migration. */
 const underReview = [
