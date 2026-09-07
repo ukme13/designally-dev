@@ -34,6 +34,21 @@ export const INTRO = {
   /** Navbar enters last. */
   navbarStart: 1850,
   navbarDuration: 2000,
+  /**
+   * When the showreel is told it may begin. NOT the end of this timeline.
+   *
+   * It used to be the end — the showreel waited for `finish()`, which runs on
+   * the timeline's completion at `total`. But the navbar's own transition is
+   * two full seconds of that, and nothing about the showreel depends on the
+   * navbar having arrived. Waiting for it put the video's entrance at roughly
+   * 5.9s from load.
+   *
+   * Set to `navbarStart`, so the two run together: the navbar takes 2000ms to
+   * arrive and the showreel's entrance 2050ms, and the page resolves as one
+   * rather than in sequence. Raise it toward `total` if the pair reads as busy;
+   * the navbar is unaffected either way, since this only fires a cue.
+   */
+  showreelCue: 1850,
   total: 3850,
 } as const;
 
@@ -61,48 +76,50 @@ export function markIntroPlayed(): void {
 }
 
 /* ---------------------------------------------------------------------------
-   Settled signal.
+   Showreel cue.
 
-   The showreel's entrance waits on the hero's, but the two live in different
-   subtrees and mount independently. A one-time event would not do: the
-   showreel can subscribe after the entrance has already finished — on an
-   internal navigation it finishes synchronously, before the showreel's effects
-   run at all — and would then wait forever for something that already
+   The showreel's entrance waits on the hero, but the two live in different
+   component subtrees and mount independently. A one-time event would not do:
+   the showreel can subscribe after the cue has already been raised — on an
+   internal navigation the hero finishes synchronously, before the showreel's
+   effects run at all — and would then wait forever for something that already
    happened.
 
    So the fact is remembered, and a late subscriber is told immediately.
+
+   It is a CUE, not an ending, and the name says so deliberately. It was
+   `markIntroSettled` while the two were the same moment; they are not any
+   more. The timeline raises it at INTRO.showreelCue, partway through, and
+   `finish()` raises it again as the safety net that covers every path where
+   the timeline never reaches that point.
 --------------------------------------------------------------------------- */
 
-let settled = false;
-const settledListeners = new Set<() => void>();
-
-/** True once the entrance has ended by any path, or was never going to run. */
-export function isIntroSettled(): boolean {
-  return settled;
-}
+let cued = false;
+const cueListeners = new Set<() => void>();
 
 /**
- * Raised by every real ending: the timeline completing, reduced motion, a
- * failed GSAP import, the watchdog, and a load the intro does not play on.
- * Idempotent — later calls do nothing.
+ * Raised at INTRO.showreelCue, and by every real ending as a backstop: the
+ * timeline completing, reduced motion, a failed GSAP import, the watchdog, and
+ * a load the intro does not play on. Idempotent — later calls do nothing, so
+ * whichever comes first wins and the rest are free.
  */
-export function markIntroSettled(): void {
-  if (settled) return;
-  settled = true;
-  for (const listener of settledListeners) listener();
+export function markShowreelCue(): void {
+  if (cued) return;
+  cued = true;
+  for (const listener of cueListeners) listener();
 }
 
 /**
- * Notified when the entrance settles, or immediately if it already has.
+ * Notified when the cue is raised, or immediately if it already has been.
  * Returns an unsubscribe function.
  */
-export function subscribeIntroSettled(listener: () => void): () => void {
-  if (settled) {
+export function subscribeShowreelCue(listener: () => void): () => void {
+  if (cued) {
     listener();
     return () => {};
   }
-  settledListeners.add(listener);
+  cueListeners.add(listener);
   return () => {
-    settledListeners.delete(listener);
+    cueListeners.delete(listener);
   };
 }

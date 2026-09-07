@@ -51,32 +51,145 @@ const situations = [
 export default function Home() {
   return (
     <>
-      {/* Hero.
-          Empty on purpose — new hero content goes here. It keeps the viewport
-          height the previous hero had so the page below still starts at the
-          fold. The page's <h1> currently lives in the intro section below; if
-          the new hero gets its own heading, move or demote that one so the
-          page still has exactly one. */}
-      {/* Hero.
-          Pulled up by exactly the space the header reserves — 80px below lg,
-          120px from lg — and made a full 100svh, so its background runs behind
-          the header to the top edge of the viewport. The negative margin and
-          the extra height cancel, so the section below still begins at 100svh.
-          See docs/specs/STARTUP-INTRO.md. */}
-      <section
-        id="hero"
-        className="relative -mt-20 min-h-svh w-full lg:-mt-section-tablet"
-      >
-        <HeroIntro />
+      {/*
+        Sticky stage.
+
+        Everything the pinned gradient sits behind lives in here: the hero and
+        the section after it. The gradient is the stage's first child and stays
+        fixed to the top of the viewport while the rest scrolls over it.
+
+        The gradient takes its own 100svh of flow, and the content below is
+        pulled back over it by exactly that much. A sticky element stays pinned
+        for (container height - its own height) of scrolling, so the stage
+        measures two viewports and the gradient is pinned for one — the length
+        of the hero.
+
+        The negative margin is on the CONTENT, never on the sticky element
+        itself. Sticky constrains an element's MARGIN box to its containing
+        block, not its border box: a `margin-bottom: -100svh` on the gradient
+        zeroes its margin box and lets the visible box overhang the stage by a
+        full viewport, so it carries on travelling behind the section below and
+        the join lands on a mid-gradient colour instead of the end stop. That
+        was the visible seam.
+
+        It then releases and travels up with the section below it, so the two
+        leave together. That is deliberate: holding the gradient still while
+        the next section rose over it read as two things moving against each
+        other rather than one picture leaving.
+
+        The negative top margin lives HERE, not on the hero. The gradient is
+        the stage's first child, so the stage's top edge is where it starts —
+        and with the offset on the hero instead, the stage began below the
+        header and left a band of white page above the gradient on every load.
+        Pulling the stage up by exactly the space the header reserves puts the
+        gradient back under it.
+
+        See docs/specs/STARTUP-INTRO.md.
+      */}
+      <div className="relative -mt-20 lg:-mt-section-tablet">
+        {/* The pinned gradient and the three statement lines. Contributes no
+            height of its own — see -mb-[100svh] above — so the hero below starts at
+            the top of the stage and overlays it. */}
+        <div aria-hidden="true" className="sticky top-0 h-svh">
+          <HeroIntro />
+        </div>
+
+        {/* Pulled back over the gradient by exactly its height. This is what
+            makes the two share the stage's first viewport — and it is on this
+            wrapper rather than on the gradient for the margin-box reason
+            above. */}
+        <div className="-mt-[100svh]">
+
+        {/* Hero.
+            The stage above carries the negative margin now. The top padding
+            here puts that space back, so the showreel centres in the area
+            BELOW the header rather than in the full viewport box and cannot
+            slide under it on a short screen.
+
+            100px of bottom padding below sm, so the block does not sit flush
+            against the fold. It is only affordable because it is accounted
+            for: `--showreel-reserve` in showreel.tsx includes it, so the
+            rectangle shrinks by the same amount rather than the hero
+            outgrowing 100svh.
+
+            `min-h-svh` rather than a fixed height: on a short viewport the
+            video and its caption are taller than the space available, and the
+            section grows instead of overflowing into the one below.
+
+            No background of its own any more — the stage's sticky layer is
+            what paints behind it. `relative` is what lifts it above that
+            layer, both being positioned.
+
+            The page's <h1> lives in the intro section below. If the hero gets
+            its own heading, move or demote that one so the page still has
+            exactly one. */}
+          <section
+            id="hero"
+            className="relative flex min-h-svh w-full items-center justify-center pt-20 pb-25 sm:pb-0"
+          >
+            {/* Selected-work showreel. See docs/specs/SHOWREEL.md.
+
+                Its entrance waits for a cue the hero raises partway through its
+                own timeline, at the moment the navbar starts arriving rather
+                than when it has finished. The wiring is `subscribeShowreelCue`
+                in app/_lib/intro.ts; nothing here sequences it.
+
+                Keeps `id="showreel"` so any existing #showreel link still
+                resolves. */}
+            <div id="showreel" className="relative z-10 w-full scroll-mt-8">
+              <Showreel />
+            </div>
+          </section>
+
+        {/* PLACEHOLDER — replace with real content.
+
+            In normal flow. Its arrival at the top of the viewport is exactly
+            where the gradient's pin ends, so from that point the two move
+            together and leave as one picture.
+
+            No background, so the gradient shows through it. */}
+          <section className="relative flex min-h-svh w-full items-center justify-center">
+            <p className="type-display-sm text-text-on-accent">test</p>
+          </section>
+        </div>
+      </div>
+
+      {/* The section the stage hands over to.
+
+          Ordinary flow, directly after the stage: it rises into frame as the
+          section above leaves, and the gradient is travelling up with them by
+          then rather than sitting still behind it.
+
+          Solid `primary-300` — the hero gradient's own bottom stop, not a
+          colour chosen to look close. At the moment the two meet they are the
+          same value and there is no line to see. Holding it solid rather than
+          starting to fade here keeps that join reading as one surface; the
+          fade back to the page's own background happens in the section below.
+
+          If the hero gradient's end stop changes, this has to change with it.
+
+          PLACEHOLDER: real content goes here, and whatever replaces it has to
+          keep this background. */}
+      <section className="relative flex min-h-svh w-full items-center justify-center bg-primary-300">
+        <p className="type-display-sm text-text-on-accent">next section</p>
       </section>
 
-      {/* Selected-work showreel. Stage A: the final rectangle with real media
-          and manual controls. See docs/specs/SHOWREEL.md. */}
-      <section
-        id="showreel"
-        className="relative w-full scroll-mt-8 bg-primary-300 py-section-mobile md:py-section-tablet xl:py-section-desktop"
-      >
-        <Showreel />
+      {/* Where the brand colour hands back to the page.
+
+          `from-primary-300` matches the solid section above exactly, for the
+          same reason that one matches the hero gradient — the join is
+          invisible because the two values are identical, not close. It then
+          runs to `surface-base`, so the page arrives back at its own
+          background rather than stopping dead on brand orange.
+
+          Three joins now depend on `primary-300` being the same value in all
+          of them: the hero gradient's end stop, the solid section above, and
+          the `from-` here. Change one and all three have to move.
+
+          PLACEHOLDER: real content goes here, and whatever replaces it has to
+          keep this background. */}
+      <section className="relative flex min-h-svh w-full items-center justify-center bg-linear-to-b from-primary-300 to-surface-base">
+        <p className="type-display-sm text-text-primary">last section</p>
       </section>
 
       <section

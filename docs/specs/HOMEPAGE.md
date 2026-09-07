@@ -71,7 +71,8 @@ View selected work
 ### Visual direction — decided
 
 **Approved: an art-directed carousel of selected project videos**, in the
-`#showreel` section below the hero. Full specification in `SHOWREEL.md`.
+`#showreel`, now inside the hero rather than in a section below it — moved on
+7 September 2026. Full specification in `SHOWREEL.md`.
 
 The original warning still stands and is the reason for every constraint below.
 A generic agency showreel that delays the message or creates a very large

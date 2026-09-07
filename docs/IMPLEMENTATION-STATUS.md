@@ -1,6 +1,6 @@
 # Implementation Status
 
-Updated: 4 September 2026
+Updated: 7 September 2026
 
 A snapshot of what exists in the codebase, what is placeholder, and what has
 not been started. Read alongside `docs/updates/` for the record of how each
@@ -86,16 +86,36 @@ specification in `docs/specs/STARTUP-INTRO.md`.
 
 ### Homepage showreel
 
-A selected-work video carousel in `#showreel`, below the hero, with a one-time
-branded entrance: 144 orange pixel cells clear from the centre outward inside a
-true circle, the circle holds, then it opens into the final 16:9 rounded
-rectangle — 1,100 / 900 / 800 ms. Four optimised films with real extracted
-posters, 2,989,567 bytes in total (2.99 MB decimal / 2.85 MiB binary). No video
-is fetched until the section approaches the viewport, playback pauses off
-screen, and every clip loops between its own configured in and out points
-rather than replaying its opening and end card. Reduced motion gets the static
-poster in the final rectangle and fetches nothing. Full specification in
-`docs/specs/SHOWREEL.md`.
+A selected-work video carousel **inside the hero**, sized to the page grid's
+width and the viewport's height with no fixed ratio, cropped by `object-cover`.
+
+Every film arrives through a pixel entrance: 144 cells in an SVG mask applied
+to the video's own container, fading in from the centre outward, each resolving
+from a circle into a square. Nothing is painted over the video — the mask
+reveals it, so the rectangle is genuinely transparent until the entrance runs
+and the hero's gradient shows through it. The grid is chosen from the rendered
+aspect ratio, so cells stay square from a phone to a desktop.
+
+Projects advance on each clip's own `crossfadeAt`, compared against real
+`currentTime`, with a 15s fallback for a stall. A switch holds the outgoing
+frame on a canvas so the rectangle never blanks. Four optimised films with real
+extracted posters, 2,989,567 bytes in total (2.99 MB decimal / 2.85 MiB
+binary). Playback pauses off screen. Reduced motion gets the static poster and
+fetches nothing.
+
+Full specification in `docs/specs/SHOWREEL.md`; the reasoning in `ADR-003`.
+
+### Homepage sticky stage
+
+The hero gradient and the three statement lines sit in a `sticky top-0 h-svh`
+layer spanning the hero and the section after it. The gradient is pinned for
+the length of the hero, then releases and travels up with the section below so
+the two leave as one picture. The statement lines fly upward on scroll, on a
+transform layer of their own.
+
+The stage hands over to a solid `primary-300` section and then to one fading
+back to the page background. All three joins depend on `primary-300` being the
+same value — see `ADR-003`.
 
 ### Footer
 
@@ -156,12 +176,33 @@ remain on the brief's "evidence needed before launch" list.
 
 ### Showreel, not built
 
-- Crossfade between projects. `crossfadeAt` is recorded per project and unread;
-  the current stage holds the final frame instead.
-- Automatic carousel advancement.
-- `tryStartCrossfade()` — specified and agreed, not written.
+- Crossfade between projects. A switch cuts: the outgoing frame is held still
+  on a canvas while the incoming film materialises over it, which is not a
+  blend. `tryStartCrossfade()` remains specified and unwritten.
+- A pause control for the automatic advance. WCAG 2.2.2 asks for one where
+  auto-updating content runs longer than five seconds. Reduced motion disables
+  the rotation entirely, which covers the visitors most affected, but there is
+  nothing for anyone else. **Launch check.**
+
+### Homepage, outstanding
+
+- **The first film is fetched on every homepage load.** The showreel is on
+  screen at first paint now, so `preload` no longer stays `"none"` — LAGA
+  (1,063,184 B) is part of the initial media cost for every visitor, where
+  before only those who scrolled paid it. Not measured, no decision taken.
+- Two placeholder sections after the sticky stage, carrying the literal text
+  "test", "next section" and "last section". They exist to hold the colour
+  handover and **must be replaced before launch**; whatever replaces them has
+  to keep their backgrounds.
 
 ### Waiting on visual review
+
+The whole sticky stage, the scroll flight of the statement lines and the
+showreel's pixel entrance were tuned from arithmetic against the tokens, not
+from watching them. Specific figures that are first guesses: the flight
+distances (0.7 / 0.85 / 1.0 viewports), `PIXEL_CELL_SCALE`, and
+`--showreel-reserve`, whose caption term assumes the statement wraps to two
+lines.
 
 The entrance animation's 250 ms hold, and the statement's size, colour,
 placement and tilt, were chosen from the brief rather than from a design file.
@@ -174,7 +215,14 @@ deliberate or slow. Neither could be judged without a device.
 
 ## Next recommended task
 
-**Organisation structured data plus an `og:image`.**
+**Replace the three homepage placeholders.**
+
+The sticky stage works but hands over to sections reading "test", "next
+section" and "last section". They are the only invented content on the site and
+the only thing on the homepage that could not ship. The colour contract they
+carry is documented in `ADR-003`.
+
+After that, **organisation structured data plus an `og:image`.**
 
 They are the last two launch checks in `docs/specs/HOMEPAGE.md` that are
 purely coding work, and both are cheap now that the company facts live in

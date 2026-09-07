@@ -32,38 +32,90 @@ Do not add one without being asked.
 ## Commands
 
 ```bash
-npm run dev      # development server
-npm run build    # production build (Turbopack)
-npm run lint     # ESLint
-npm start        # serve a production build
+npm run dev       # development server
+npm run build     # production build (Turbopack)
+npm run lint      # ESLint
+npm run typecheck # TypeScript, no emit
+npm start         # serve a production build
 ```
 
 ## Verification
 
-Run these after any code change, and report the real result:
+Verification is tiered. Match the tier to the change; running the whole set
+after every edit wastes minutes and tokens without catching anything extra.
+
+**Tier 0 — Markdown only.** Documentation under `docs/`, this file, or a
+README. No checks. There is nothing to compile; do not run one.
+
+**Tier 1 — copy, content data, comments — anything inside `app/`.**
+
+```bash
+npm run typecheck
+```
+
+**Tier 2 — component, styling or token changes.** Tier 1, plus:
 
 ```bash
 npm run lint
-npx tsc --noEmit
+npm run build          # Turbopack
+```
+
+For a new design token or utility class, also confirm it compiled — `grep`
+the generated stylesheet under `.next/static/css/`. A class that matches no
+theme entry produces no CSS and no error.
+
+**Tier 3 — routing, layout, `next.config.ts`, dependencies, or anything
+about to be committed.** Tier 2, plus the second bundler:
+
+```bash
 npm run build -- --webpack
 ```
 
 `--webpack` is a supported flag on this version; the default bundler is
-Turbopack. Building both ways catches bundler-specific breakage.
+Turbopack. Building both ways catches bundler-specific breakage, but it is
+slow — save it for the end of a piece of work, not for each edit.
 
-For routing, layout or navigation changes, also serve the build and check the
-affected URLs:
+Run each tier **once**, when the change is finished. Report the real result,
+and name any check you skipped and why.
 
-```bash
-npm start
-```
-
-There is no test runner and no formatter configured yet. Do not claim either
-one ran. If a check is skipped or unavailable, say so plainly.
+There is no test runner and no formatter configured yet. Do not look for one,
+add one, or claim either ran.
 
 Never report work as complete on the strength of a passing type-check alone.
-Confirm the rendered output — read the generated HTML in `.next/server/app/`
-or load the page.
+Confirm the rendered output by reading the generated HTML in
+`.next/server/app/` — `grep` for the specific string or element you changed
+rather than printing the whole file.
+
+## Working economically
+
+Time and tokens are a real budget on this project. Spend them on the change,
+not on rediscovering the repository.
+
+- **Read narrowly.** Use `grep` or a targeted line range. Do not read a whole
+  file when a symbol lookup answers the question, and do not print build
+  output, `package-lock.json`, generated HTML or generated CSS in full.
+- **Read one planning document, not the folder.** `docs/` is reference
+  material. Open the one file the task names — the page spec, the sitemap,
+  `URL-REDIRECTS.md` — and stop there.
+- **Do not run visual checks.** No browser-control tools, no screenshots, no
+  starting a dev server unless asked. Visual and design review is done by the
+  user. When a change needs eyes on it, finish the code, state the exact URL
+  or path to look at, and hand it over.
+- **Do not fan out.** No subagents, parallel research agents or multi-agent
+  workflows unless asked for by name.
+- **Do not fix what you were not asked to fix.** If you hit a pre-existing
+  failure, a lint error in untouched code, or a bug outside the current task,
+  report it in one line and carry on. Do not investigate or repair it.
+- **Ask before an expensive detour.** If a task turns out to need a dependency
+  change, a wide refactor or a long research pass, say what it would take and
+  wait, rather than spending the budget first.
+- **Scale the research to the risk.** The rules below are for choosing or
+  changing technology. Reusing an API already used elsewhere in this codebase
+  only needs a look at that existing usage.
+
+Servers you start belong to you: stop anything left running on ports
+3000–3005 before you finish. **Never touch port 3002** — it is reserved for
+an external process.
 
 ## Research before choosing or changing technology
 

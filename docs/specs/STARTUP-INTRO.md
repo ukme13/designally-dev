@@ -12,6 +12,22 @@ The cream-to-orange gradient and the three statement lines are permanent parts
 of the hero. They are present in the served HTML and remain on screen after the
 sequence ends. **Only the mask that hides them is temporary.**
 
+**The gradient and the lines now live in a sticky stage, not in the hero
+section.** Since 7 September 2026 they sit in a `sticky top-0 h-svh` layer that
+spans the hero and the section after it: the gradient stays pinned to the top
+of the viewport for the length of the hero, then releases and travels up with
+the section below so the two leave as one picture. The statement lines gained a
+scroll-driven transform layer and fly upward as the page scrolls past.
+
+Two structural details that are load-bearing, both recorded in `app/page.tsx`:
+the negative top margin that pulls the hero under the header lives on the
+stage, because the gradient's top edge follows the stage rather than the hero;
+and the negative margin that overlays the content on the gradient must be on
+the CONTENT, never on the sticky element — sticky constrains an element's
+margin box rather than its border box, so zeroing the gradient's own margin box
+lets its visible box overhang the stage and carry on travelling behind the
+section below.
+
 Nothing waits on this animation. The page is server-rendered with its real
 content and is usable throughout.
 

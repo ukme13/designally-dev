@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   INTRO,
   markIntroPlayed,
-  markIntroSettled,
+  markShowreelCue,
   shouldPlayIntro,
 } from "@/app/_lib/intro";
 
@@ -73,10 +73,35 @@ const RISE_CLEARANCE = 48;
  * silently reassign these depths.
  */
 const PARALLAX_LIMIT = [
-  { x: 80, y: 40 },
-  { x: 140, y: 70 },
-  { x: 200, y: 100 },
+  { x: 80, y: 10 },
+  { x: 140, y: 20 },
+  { x: 200, y: 30 },
 ] as const;
+
+/**
+ * How much scrolling the flight is spread over, in viewports.
+ *
+ * Two, so it lasts the length of the sticky stage — the hero and the section
+ * after it — rather than being over by the time the hero has gone. The lines
+ * are still on screen, still leaving, while the second section is being read.
+ */
+const SCROLL_FLIGHT_VIEWPORTS = 2;
+
+/**
+ * How far each line travels upward, as a multiple of the viewport height,
+ * across the whole of SCROLL_FLIGHT_VIEWPORTS.
+ *
+ * Under 1, and deliberately: this is movement RELATIVE TO the layer the lines
+ * sit in, and that layer is only pinned for the length of the hero. After that
+ * it releases and travels up with the page, so the total distance a line
+ * covers is its own flight plus the layer's. Distances that clear the frame on
+ * their own would take the lines out before the section below arrived.
+ *
+ * Increasing down the list, so they separate on the way out rather than
+ * leaving as a block. The order is line identity, matching PARALLAX_LIMIT —
+ * line one is the topmost and travels least.
+ */
+const SCROLL_FLIGHT = [0.7, 0.85, 1.0] as const;
 
 /** Long enough to lag behind the cursor, short enough not to feel like drift. */
 const PARALLAX_DURATION = 0.6;
@@ -100,7 +125,11 @@ export default function HeroIntro() {
   const lineOneRef = useRef<HTMLDivElement>(null);
   const lineTwoRef = useRef<HTMLDivElement>(null);
   const lineThreeRef = useRef<HTMLDivElement>(null);
-  /** Layer 3 of each line: the only element mouse parallax writes to. */
+  /** Layer 2 of each line: the only element the scroll flight writes to. */
+  const flightOneRef = useRef<HTMLDivElement>(null);
+  const flightTwoRef = useRef<HTMLDivElement>(null);
+  const flightThreeRef = useRef<HTMLDivElement>(null);
+  /** Layer 4 of each line: the only element mouse parallax writes to. */
   const parallaxOneRef = useRef<HTMLDivElement>(null);
   const parallaxTwoRef = useRef<HTMLDivElement>(null);
   const parallaxThreeRef = useRef<HTMLDivElement>(null);
@@ -151,10 +180,14 @@ export default function HeroIntro() {
       //
       // Deliberately not in restore(), which is also the unmount path.
       setEntranceDone(true);
-      // The same fact, for anything outside this subtree — the showreel's
-      // entrance waits on it. Remembered rather than broadcast, so a component
-      // that mounts later is not left waiting for an event it missed.
-      markIntroSettled();
+      // Backstop for the showreel, which waits on a cue the timeline normally
+      // raises partway through at INTRO.showreelCue. This covers every path
+      // where the timeline never reaches that point — reduced motion, a failed
+      // import, the watchdog, a load the intro does not play on. Idempotent,
+      // so when the timeline did raise it this does nothing. Remembered rather
+      // than broadcast, so a component that mounts later is not left waiting
+      // for an event it missed.
+      markShowreelCue();
     };
 
     if (!shouldPlayIntro(pathname)) {
@@ -313,6 +346,18 @@ export default function HeroIntro() {
                 },
                 (INTRO.markStart + INTRO.markFall) / 1000,
               )
+              // Releases the showreel, which has been waiting to start its
+              // own entrance. Deliberately here rather than at the end of this
+              // timeline: the navbar's transition below is two full seconds
+              // and the showreel does not depend on it, so waiting for it put
+              // the video's entrance at roughly 5.9s from load. The two now
+              // run together. Nothing about the navbar is affected — this
+              // fires a cue and moves on.
+              .call(
+                () => markShowreelCue(),
+                undefined,
+                INTRO.showreelCue / 1000,
+              )
               // Stage 3: the whole navbar enters once the last line has
               // settled. The header lives in the root layout, outside this
               // component's subtree, so the timeline flips the marker and the
@@ -379,6 +424,106 @@ export default function HeroIntro() {
       });
     };
   }, [pathname]);
+
+  /*
+    Scroll flight: the lines leave upward as the page scrolls past the hero.
+
+    A third effect for the same reason parallax is a second one — the entrance
+    owns a generation token and a microtask-deferred restore that exist to
+    survive Strict Mode, and nothing else should have to reason about them.
+
+    It writes to layer 2 and nothing else. The entrance owns layer 3, placement
+    owns layer 1 and the tilt lives on the paragraph, so no two things ever
+    share a transform. Putting this on an existing layer would fold it into
+    that layer's matrix and the tilt would be lost at the end.
+
+    Gated on `entranceDone`, so scrolling during the first four seconds cannot
+    have the lines falling in and flying out at once.
+
+    A plain listener with a `quickSetter` rather than ScrollTrigger: the value
+    is a direct function of `scrollY` with no easing, timeline or pinning
+    involved, and the plugin would be 40kB to compute one number. Reads are
+    coalesced to one per frame.
+  */
+  useEffect(() => {
+    if (!entranceDone) return;
+
+    const layers = [
+      flightOneRef.current,
+      flightTwoRef.current,
+      flightThreeRef.current,
+    ].filter((node): node is HTMLDivElement => node !== null);
+
+    /* Requiring the full set keeps each layer aligned with its own distance;
+       a short array would silently shift them up by one. */
+    if (layers.length !== SCROLL_FLIGHT.length) return;
+
+    let cancelled = false;
+    let context: { revert: () => void } | undefined;
+
+    const run = async () => {
+      const { gsap } = await import("gsap");
+      if (cancelled) return;
+
+      const media = gsap.matchMedia();
+
+      media.add("(prefers-reduced-motion: no-preference)", () => {
+        const setters = layers.map((layer) =>
+          gsap.quickSetter(layer, "y", "px"),
+        );
+        let frame = 0;
+
+        const update = () => {
+          frame = 0;
+          const height = window.innerHeight || 1;
+          /* Spread over the whole stage rather than the hero alone, so the
+             lines are still travelling while the section below is on screen.
+             Clamped, so they settle once they are gone rather than
+             accelerating away down the rest of the page. */
+          const progress = Math.min(
+            1,
+            Math.max(
+              0,
+              window.scrollY / (height * SCROLL_FLIGHT_VIEWPORTS),
+            ),
+          );
+          setters.forEach((set, index) => {
+            set(-progress * height * SCROLL_FLIGHT[index]);
+          });
+        };
+
+        /* Coalesced to one write per frame. Scroll fires far more often than
+           the screen repaints, and this reads layout-independent values only,
+           so there is nothing to gain from running on every event. */
+        const onScroll = () => {
+          if (!frame) frame = requestAnimationFrame(update);
+        };
+
+        /* Once immediately: a reload partway down the page must not start the
+           lines at zero and then jump. */
+        update();
+        window.addEventListener("scroll", onScroll, { passive: true });
+        window.addEventListener("resize", onScroll);
+
+        return () => {
+          if (frame) cancelAnimationFrame(frame);
+          window.removeEventListener("scroll", onScroll);
+          window.removeEventListener("resize", onScroll);
+        };
+      });
+
+      context = media;
+    };
+
+    void run();
+
+    return () => {
+      cancelled = true;
+      /* Runs the cleanup above, and reverts the inline transform, so the lines
+         are left exactly where the stylesheet puts them. */
+      context?.revert();
+    };
+  }, [entranceDone]);
 
   /*
     Mouse parallax on the three statement lines.
@@ -562,14 +707,16 @@ export default function HeroIntro() {
       {/* Permanent statement. Real text, so it is left readable by assistive
           technology rather than hidden as decoration.
 
-          Four elements per line, and the split is the point — no two things
+          Five elements per line, and the split is the point — no two things
           may share a transform:
 
             1 position   absolute top/left/right/bottom. Nothing animates it.
-            2 entrance   owns the ref and `intro-line`. The timeline writes y
+            2 flight     scroll-driven y. Carries the line up and out of frame
+                         as the page scrolls past the hero.
+            3 entrance   owns the ref and `intro-line`. The timeline writes y
                          here; the CSS pre-paint and fallback rules target it.
-            3 parallax   mouse-driven x and y. Nothing else touches it.
-            4 type       typography, colour, alignment and the tilt. No GSAP
+            4 parallax   mouse-driven x and y. Nothing else touches it.
+            5 type       typography, colour, alignment and the tilt. No GSAP
                          target ever.
 
           Anything that is a transform belongs on the type element. Put a
@@ -584,7 +731,7 @@ export default function HeroIntro() {
                       holds at every viewport size.
           Keep `intro-line` — the reduced-motion rule targets it.
 
-          Styling — on element 4:
+          Styling — on element 5:
             family    font-display | font-body | font-accent
             size      an arbitrary font size — `text-` plus a clamp() of
                       min, preferred, max in square brackets. The vw figure in
@@ -604,40 +751,49 @@ export default function HeroIntro() {
       <div className={STATEMENT_BLOCK}>
         {/* 1 — position */}
         <div className="whitespace-nowrap absolute bottom-[20%] left-gutter-mobile md:left-gutter-tablet xl:left-[-5%]">
-          {/* 2 — entrance */}
-          <div ref={lineOneRef} className="intro-line">
-            {/* 3 — parallax */}
-            <div ref={parallaxOneRef}>
-              {/* 4 — type */}
-              <p className="-rotate-8 text-left font-body font-regular text-[clamp(7rem,12vw,20rem)] leading-[0.95] tracking-tight text-primary-250/50">
-                Make it <i className="font-display">Right</i>
-              </p>
+          {/* 2 — flight */}
+          <div ref={flightOneRef}>
+            {/* 3 — entrance */}
+            <div ref={lineOneRef} className="intro-line">
+              {/* 4 — parallax */}
+              <div ref={parallaxOneRef}>
+                {/* 5 — type */}
+                <p className="-rotate-8 text-left font-body font-regular text-[clamp(7rem,12vw,20rem)] leading-[0.95] tracking-tight text-primary-250/50">
+                  Make it <i className="font-display">Right</i>
+                </p>
+              </div>
             </div>
           </div>
         </div>
         {/* 1 — position */}
         <div className="whitespace-nowrap absolute bottom-[5%] right-gutter-mobile md:right-gutter-tablet xl:right-[-10%]">
-          {/* 2 — entrance */}
-          <div ref={lineTwoRef} className="intro-line">
-            {/* 3 — parallax */}
-            <div ref={parallaxTwoRef}>
-              {/* 4 — type */}
-              <p className="rotate-4 text-right font-body font-light text-[clamp(7rem,12vw,20rem)] leading-[0.95] tracking-tight text-primary-300">
-                Make it <i className="font-display">Simple</i>
-              </p>
+          {/* 2 — flight */}
+          <div ref={flightTwoRef}>
+            {/* 3 — entrance */}
+            <div ref={lineTwoRef} className="intro-line">
+              {/* 4 — parallax */}
+              <div ref={parallaxTwoRef}>
+                {/* 5 — type */}
+                <p className="rotate-4 text-right font-body font-light text-[clamp(7rem,12vw,20rem)] leading-[0.95] tracking-tight text-primary-300">
+                  Make it <i className="font-display">Simple</i>
+                </p>
+              </div>
             </div>
           </div>
         </div>
         {/* 1 — position */}
-        <div className="whitespace-nowrap absolute bottom-[-7%] left-gutter-mobile md:left-gutter-tablet xl:left-[8%]">
-          {/* 2 — entrance */}
-          <div ref={lineThreeRef} className="intro-line">
-            {/* 3 — parallax */}
-            <div ref={parallaxThreeRef}>
-              {/* 4 — type */}
-              <p className="rotate-3 text-left font-body font-medium text-[clamp(7rem,12vw,20rem)] leading-[0.95] tracking-tight text-primary-350">
-                Make it <i className="font-display">Work</i>
-              </p>
+        <div className="whitespace-nowrap absolute bottom-[-8%] left-gutter-mobile md:left-gutter-tablet xl:left-[6%]">
+          {/* 2 — flight */}
+          <div ref={flightThreeRef}>
+            {/* 3 — entrance */}
+            <div ref={lineThreeRef} className="intro-line">
+              {/* 4 — parallax */}
+              <div ref={parallaxThreeRef}>
+                {/* 5 — type */}
+                <p className="rotate-2 text-left font-body font-medium text-[clamp(7rem,12vw,20rem)] leading-[0.95] tracking-tight text-primary-350">
+                  Make it <i className="font-display">Work</i>
+                </p>
+              </div>
             </div>
           </div>
         </div>

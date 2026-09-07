@@ -14,8 +14,6 @@
  * client name. This blocks launch, not development.
  */
 
-import { projects } from "@/app/_lib/projects";
-
 export type ShowreelProject = {
   /** Matches the `name` in app/_lib/projects.ts, which owns the facts. */
   name: string;
@@ -41,7 +39,8 @@ export type ShowreelProject = {
    * Every value leaves room for the 500ms crossfade to finish before the media
    * does.
    *
-   * Unused in Stage A, which holds the final frame instead of advancing.
+   * Unread for now: the current build holds the final frame rather than
+   * advancing to the next project.
    */
   crossfadeAt: number;
   /**
@@ -97,17 +96,6 @@ export const SHOWREEL: readonly ShowreelProject[] = [
 ];
 
 /**
- * The stage and services shown beside the video, read from the single place
- * that owns them. Nothing about a project is restated here.
- */
-export function showreelCaption(name: string) {
-  const project = projects.find((entry) => entry.name === name);
-  return project
-    ? { stage: project.stage, services: project.services }
-    : undefined;
-}
-
-/**
  * Distance from the viewport at which media may begin loading. Loading and
  * visibility are separate conditions: this one only permits the fetch.
  */
@@ -115,63 +103,186 @@ export const LOAD_MARGIN = "200px";
 /** How much of the section must be on screen before it may play. */
 export const VISIBLE_RATIO = 0.25;
 
-/* ---------------------------------------------------------------------------
-   Pixel reveal — Stage B.
+/**
+ * Last resort for the carousel, NOT the thing that drives it.
+ *
+ * Projects advance on `crossfadeAt` — the per-clip point where its content
+ * actually ends, compared against the element's real `currentTime` in
+ * `onTimeUpdate`. That lands at the right frame for each film and corrects
+ * itself when a load runs slow.
+ *
+ * A wall clock could not. Playback begins before the entrance finishes, so a
+ * clip is already ~2s in by the time it is fully revealed and that time counts
+ * against its content. At a 7s dwell every clip looped back to `startAt`
+ * before the switch, LAGA by nearly two seconds against its 7.3s of content.
+ *
+ * So this only covers the case where `crossfadeAt` never arrives: a stalled
+ * download, a decode that stops reporting, a `timeupdate` that dries up.
+ * Deliberately far longer than any clip, so it never races a real advance —
+ * the longest carries 8.9s of content and a normal switch lands about 7s into
+ * the dwell. Timed from the entrance settling, and reset by every advance.
+ */
+export const ADVANCE_FALLBACK_MS = 15000;
 
-   A grid of orange cells covering the rectangle, cleared from the centre
-   outward so the moving video appears through it.
+/* ---------------------------------------------------------------------------
+   Pixel reveal.
+
+   A grid of cells in an SVG mask applied to the video's own container. Cells
+   start invisible, so the rectangle is genuinely transparent and the hero's
+   gradient shows through it; they fade in from the centre outward and the film
+   materialises out of the page.
+
+   It was an opaque cover dissolving OFF the video until 7 September 2026. The
+   inversion is what removed the cover colour problem entirely — there is no
+   longer a fill that has to match anything — along with the container's
+   circle-to-rectangle morph, its clip-path measurement and the resize handling
+   that went with them.
 --------------------------------------------------------------------------- */
 
-/** Matches the 16:9 rectangle, so every cell is exactly square. */
-export const PIXEL_COLUMNS = 16;
-export const PIXEL_ROWS = 9;
-export const PIXEL_CELLS = PIXEL_COLUMNS * PIXEL_ROWS;
+/**
+ * The `id` the mask is registered under and referenced by.
+ *
+ * A constant rather than a generated id: there is one showreel per page, the
+ * reference has to be written into a CSS `url(#…)` on a different element, and
+ * a stable name is what makes that legible in devtools.
+ */
+export const SHOWREEL_MASK_ID = "showreel-pixel-mask";
 
 /**
- * Whole reveal, first cell starting to last cell finished.
+ * Roughly how many cells the grid aims for, whatever shape it has to fill.
  *
- * The single knob for the scatter's pace. The order is unaffected — the gaps
- * between cells stretch, nothing is resequenced — and the morph follows,
- * because it is placed at PIXEL_REVEAL_MS + CIRCLE_HOLD_MS rather than a fixed
- * time, so the circle always holds for exactly CIRCLE_HOLD_MS.
+ * The count is held near-constant and the arrangement varies, rather than the
+ * other way round, so the reveal takes about the same number of steps at every
+ * size and the effect reads the same on a phone as on a desktop.
  */
-export const PIXEL_REVEAL_MS = 1100;
+export const PIXEL_TARGET_CELLS = 144;
+
+/** The 16:9 arrangement. Also the default before anything has been measured. */
+export const PIXEL_COLUMNS = 16;
+export const PIXEL_ROWS = 9;
+
+export type PixelGrid = { columns: number; rows: number };
+
 /**
- * How long one cell takes to go.
+ * The arrangement whose cells come closest to square in a box of this shape.
  *
- * Short, so the result reads as pixels switching off rather than a soft
- * dissolve — but not zero, which would alias badly on a moving video.
+ * Cell geometry is expressed in objectBoundingBox units — fractions of the
+ * masked element — so a fixed 16 x 9 grid only produces square cells in a 16:9
+ * box. The showreel stopped being 16:9 everywhere on 7 September 2026: it
+ * fills the screen height on mobile, where a portrait box would have turned
+ * every cell into a tall rectangle and every "circle" into an ellipse.
+ *
+ * columns = sqrt(cells * aspect) is the arrangement that squares them: with
+ * `columns * rows = cells` and `columns / rows = aspect`, that is what falls
+ * out. Rounded, then rows derived from the rounded columns so the two always
+ * multiply back to something near the target.
+ *
+ * Clamped at both ends. A pathological box — a sliver during a resize, a
+ * measurement of zero — must not produce a grid of one enormous cell or of
+ * thousands of invisible ones.
  */
-export const PIXEL_CELL_MS = 160;
+export function pixelGrid(aspect: number): PixelGrid {
+  if (!Number.isFinite(aspect) || aspect <= 0) {
+    return { columns: PIXEL_COLUMNS, rows: PIXEL_ROWS };
+  }
+  const columns = Math.min(
+    32,
+    Math.max(4, Math.round(Math.sqrt(PIXEL_TARGET_CELLS * aspect))),
+  );
+  const rows = Math.min(
+    32,
+    Math.max(4, Math.round(PIXEL_TARGET_CELLS / columns)),
+  );
+  return { columns, rows };
+}
+
+/**
+ * The scatter: first cell starting to last cell finished FADING IN.
+ *
+ * The knob for the wave's pace. The order is unaffected — the gaps between
+ * cells stretch, nothing is resequenced. It does not cover the morph, which
+ * follows each cell individually.
+ */
+export const PIXEL_REVEAL_MS = 1300;
+
+/* ---------------------------------------------------------------------------
+   A cell's life, in three phases.
+
+   These were one 160ms tween until 7 September 2026, with opacity and shape
+   moving together. That was the bug: a cell faded in WHILE squaring up, so it
+   was never a visible circle at any point and the result read as squares
+   simply appearing. Separating the phases is what makes the shape legible —
+   the circle has to exist on screen before it is allowed to change.
+--------------------------------------------------------------------------- */
+
+/**
+ * Phase 1 — the cell appears, as a circle, and does not change shape.
+ *
+ * Short, so the result reads as a pixel switching on rather than a soft
+ * dissolve, but not zero, which would alias badly on a moving video.
+ */
+export const PIXEL_FADE_MS = 200;
+/**
+ * Phase 2 — it sits there, fully opaque and still round.
+ *
+ * The whole point of the effect. Without a hold the morph begins the instant
+ * the cell is visible and the eye reads one continuous event rather than a
+ * circle that then becomes a square. Raise it to make the dot more emphatic.
+ */
+export const PIXEL_DOT_HOLD_MS = 200;
+/**
+ * Phase 3 — circle to square.
+ *
+ * Long and eased, because this is the part worth watching. It is nearly three
+ * times the fade for that reason.
+ */
+export const PIXEL_MORPH_MS = 550;
 /**
  * How much each cell is oversized while it is still round.
  *
- * A circle only covers a square if its diameter is that square's diagonal, so
- * the scale has to be at least sqrt(2) ~ 1.4142 or the corners of every slot
- * would be uncovered and the video would show through a grid of gaps before
- * the reveal began. A hair over, for rounding.
+ * Every cell starts as a circle and squares up as it arrives, so a pixel
+ * resolves rather than simply appearing.
  *
- * Scale and radius are interpolated together, and coverage holds throughout:
- * at scale 1 the cell is a square exactly filling its slot, and at every point
- * between, the rounded box still contains the slot's corners.
+ * The figure is inherited from the cover this replaced, where it was a
+ * coverage requirement: a circle only hides a square if its diameter is that
+ * square's diagonal, so anything under sqrt(2) left the corners of every slot
+ * showing. Revealing rather than covering, that constraint is gone — the
+ * finished state is a square at scale 1 tiling its slot exactly, and coverage
+ * at the START no longer matters.
+ *
+ * So this is now purely aesthetic, and it is set for legibility rather than
+ * coverage. At the inherited 1.42 the round cells overlapped heavily and the
+ * image filled in before the circles could be read as circles. Just over 1
+ * keeps them as distinct dots that close the gaps only as they square up,
+ * which is the whole point of the shape.
+ *
+ * Not exactly 1: at 1 the starting circle is inscribed in its slot and the
+ * dots never touch until the last moment of each cell's tween. The 5% is
+ * enough for neighbours to meet as they resolve, without the overlap reading
+ * as a blur.
+ *
+ * Only the START is affected. Every cell finishes at its own slot exactly,
+ * whatever this is set to, so the finished mask always tiles perfectly.
  */
-export const PIXEL_CELL_SCALE = 1.42;
-
-/** Stage C: the circle holds, fully revealed, before it opens out. */
-export const CIRCLE_HOLD_MS = 900;
-/** Stage C: circle to final rounded rectangle. */
-export const MORPH_MS = 800;
-/** First pixel to final corner. 700 + 900 + 800. */
-export const ENTRANCE_MS = PIXEL_REVEAL_MS + CIRCLE_HOLD_MS + MORPH_MS;
+export const PIXEL_CELL_SCALE = 0.9;
 
 /**
- * The longest the cover may stay once the section is actually on screen.
+ * First pixel appearing to the last one finishing its morph.
+ *
+ * The last cell finishes fading at PIXEL_REVEAL_MS, holds, then morphs — so
+ * the tail of the entrance is one cell's remaining two phases, not the whole
+ * scatter over again.
+ */
+export const ENTRANCE_MS =
+  PIXEL_REVEAL_MS + PIXEL_DOT_HOLD_MS + PIXEL_MORPH_MS;
+
+/**
+ * The longest the rectangle may stay unrevealed once it could actually reveal.
  *
  * The reveal waits on several conditions, and any of them can fail to arrive:
  * autoplay refused despite the video being muted, a decode that never reports
- * `playing`, a stalled network. None of those should leave an orange rectangle
- * sitting over the work. Measured from becoming visible, not from arming, so
- * the cover can wait indefinitely while off screen.
+ * `playing`, a stalled network. None of those should leave a permanent hole
+ * where the work belongs.
  */
 export const PIXEL_COVER_MAX_MS = ENTRANCE_MS + 3000;
 
@@ -206,25 +317,35 @@ function pixelNoise(index: number): number {
 }
 
 /**
- * Each cell's place in the order, 0 first and 1 last.
+ * Each cell's place in the order, 0 first and 1 last, for a given grid.
+ *
+ * Cached per arrangement: the grid is chosen from the rendered shape now, so
+ * this is called again whenever that changes, and the maths is pure.
  *
  * Row-major, matching the order the cells are rendered in, so a cell's index
- * is its delay's index. Computed once at module scope from pure arithmetic:
+ * is its delay's index, and the same index addresses the matching `<rect>` in
+ * the mask. Computed once at module scope from pure arithmetic:
  * identical on the server and the client, and identical between reloads.
  *
  * Distance from the centre and noise are blended rather than added, so the
  * result always spans the full 0..1 range whatever `PIXEL_SCATTER` is set to
  * and the reveal always takes its whole duration.
  */
-export const PIXEL_ORDER: readonly number[] = (() => {
-  const centreX = (PIXEL_COLUMNS - 1) / 2; // 7.5
-  const centreY = (PIXEL_ROWS - 1) / 2; // 4
-  const furthest = Math.hypot(centreX, centreY); // exactly 8.5
+const orderCache = new Map<string, readonly number[]>();
+
+export function pixelOrder(columns: number, rows: number): readonly number[] {
+  const key = `${columns}x${rows}`;
+  const cached = orderCache.get(key);
+  if (cached) return cached;
+
+  const centreX = (columns - 1) / 2;
+  const centreY = (rows - 1) / 2;
+  const furthest = Math.hypot(centreX, centreY) || 1;
   const order: number[] = [];
 
-  for (let row = 0; row < PIXEL_ROWS; row += 1) {
-    for (let column = 0; column < PIXEL_COLUMNS; column += 1) {
-      const index = row * PIXEL_COLUMNS + column;
+  for (let row = 0; row < rows; row += 1) {
+    for (let column = 0; column < columns; column += 1) {
+      const index = row * columns + column;
       const distance = Math.hypot(column - centreX, row - centreY) / furthest;
       order.push(
         distance * (1 - PIXEL_SCATTER) + pixelNoise(index) * PIXEL_SCATTER,
@@ -232,5 +353,6 @@ export const PIXEL_ORDER: readonly number[] = (() => {
     }
   }
 
+  orderCache.set(key, order);
   return order;
-})();
+}
