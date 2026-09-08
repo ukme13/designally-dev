@@ -25,6 +25,7 @@ import {
 import { CloseIcon, MenuBarsIcon, MenuStreamIcon } from "@/app/_components/icons";
 import { STAGGER_ENTER } from "@/app/_lib/motion";
 import { useDismiss } from "@/app/_lib/use-dismiss";
+import { useHeaderLogoTone } from "@/app/_lib/use-header-logo-tone";
 import { useModalPanel } from "@/app/_lib/use-modal-panel";
 import { useScrollState } from "@/app/_lib/use-scroll-state";
 
@@ -125,6 +126,16 @@ export default function HeaderShell({
   useDismiss(topMenuOpen, [topMenuRef], closeTopMenu);
   useDismiss(floatingMenuOpen, [floatingRef], closeFloatingMenu);
   useModalPanel(drawerOpen, panelRef, closeDrawer, triggerRef);
+
+  /*
+    Turns the FLOATING header's monogram white over sections marked
+    `data-header-tone="light"`. The top bar's wordmark stays orange, by choice.
+
+    Suspended while the drawer is open. Today that is belt and braces — the
+    drawer is `md:hidden` and the floating header `md:flex`, so the two cannot
+    be on screen together — but it holds even if that pairing ever changes.
+  */
+  useHeaderLogoTone({ suspended: drawerOpen });
 
   // Both panels close on a route change, and the compact menu closes when the
   // floating header retreats out of view. Adjusted during render rather than

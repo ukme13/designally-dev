@@ -9,6 +9,7 @@ import {
 import SiteFooter from "@/app/_components/site-footer";
 import IntroCoordinator from "@/app/_components/intro-coordinator";
 import ScrollToTop from "@/app/_components/scroll-to-top";
+import SmoothScroll from "@/app/_components/smooth-scroll";
 import SiteHeader from "@/app/_components/site-header";
 import { siteUrl } from "@/app/_lib/site";
 import "./globals.css";
@@ -97,6 +98,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         >
           Skip to content
         </a>
+        <SmoothScroll />
         <IntroCoordinator />
         <ScrollToTop />
         <SiteHeader />

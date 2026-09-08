@@ -849,9 +849,12 @@ at that point in the gradient it is close to the background behind it.
 
 The second build was invoked as `npm run build --webpack`. Without the `--`
 separator npm keeps the flag for itself, so it never reached Next.js and
-Turbopack ran both times. **The webpack build was not performed.** Anything
-bundler-specific in this feature is still unverified; run
-`npm run build -- --webpack` to close that gap.
+Turbopack ran both times — the webpack build was not performed at the time this
+was written.
+
+**Closed on 8 September 2026.** `npm run build -- --webpack` ran against the
+whole site, this feature included, and succeeded. Nothing in the showreel turned
+out to be bundler-specific.
 
 Compiled CSS checked for every utility introduced — a Tailwind class matching no
 theme entry produces no CSS and no error. That check caught `type-body-sm`,

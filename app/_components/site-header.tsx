@@ -88,14 +88,14 @@ export default function SiteHeader() {
       wordmark={
         <span
           aria-hidden="true"
-          className="block h-4 w-auto aspect-536/50 bg-action-primary sm:h-5"
+          className="site-logo block h-4 w-auto aspect-536/50 sm:h-5"
           style={maskStyle(WORDMARK_SRC)}
         />
       }
       mark={
         <span
           aria-hidden="true"
-          className="block size-13 bg-action-primary"
+          className="site-logo block size-13"
           style={maskStyle(MONOGRAM_SRC)}
         />
       }

@@ -1,8 +1,13 @@
 "use client";
 
+import { useLenis } from "lenis/react";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
+import { present } from "@/app/_lib/element-slots";
+import type { ElementSlots } from "@/app/_lib/element-slots";
+import { useStatementFlight } from "@/app/_lib/use-statement-flight";
+import { useStatementParallax } from "@/app/_lib/use-statement-parallax";
 import {
   INTRO,
   markIntroPlayed,
@@ -46,7 +51,47 @@ import {
  * fight it, with stylesheet order deciding the winner rather than the order
  * written here.
  */
-const STATEMENT_BLOCK = "absolute inset-0 pointer-events-none";
+const STATEMENT_BLOCK = "absolute inset-0 pointer-events-none opacity-20";
+
+/**
+ * The three lines, in line identity order — one, two, three.
+ *
+ * That order is load-bearing beyond the markup: PARALLAX_LIMIT and
+ * SCROLL_KEYFRAMES are indexed by it, so reordering this array reassigns their
+ * depths and journeys too. The entrance deliberately animates the reverse of
+ * it; see the note where that array is built.
+ *
+ * Every class is written out as a literal string. Tailwind scans this file as
+ * text, so a class that only ever exists here still compiles — but one that is
+ * assembled from fragments at runtime does not.
+ *
+ * `placement` is layer 1 and `type` is layer 5. Nothing else about a line is
+ * editable from here, and nothing else should be: the three wrappers between
+ * them each own one transform and carry no styling at all.
+ */
+const STATEMENT_LINES = [
+  {
+    placement:
+      "whitespace-nowrap absolute bottom-[20%] left-gutter-mobile md:left-gutter-tablet xl:left-[-5%]",
+    type: "text-left font-body font-regular text-[clamp(7rem,12vw,20rem)] leading-[0.95] tracking-tight text-primary-250/50",
+    lead: "Make it ",
+    accent: "Right",
+  },
+  {
+    placement:
+      "whitespace-nowrap absolute bottom-[5%] right-gutter-mobile md:right-gutter-tablet xl:right-[-10%]",
+    type: "text-right font-body font-light text-[clamp(7rem,12vw,20rem)] leading-[0.95] tracking-tight text-primary-300",
+    lead: "Make it ",
+    accent: "Simple",
+  },
+  {
+    placement:
+      "whitespace-nowrap absolute bottom-[-8%] left-gutter-mobile md:left-gutter-tablet xl:left-[6%]",
+    type: "text-left font-body font-medium text-[clamp(7rem,12vw,20rem)] leading-[0.95] tracking-tight text-primary-350",
+    lead: "Make it ",
+    accent: "Work",
+  },
+] as const;
 
 /**
  * Extra distance, in pixels, that each line is raised beyond the point where
@@ -79,75 +124,98 @@ const PARALLAX_LIMIT = [
 ] as const;
 
 /**
- * How much scrolling the flight is spread over, in viewports.
+ * THE KNOBS. Where each statement line starts and ends its scroll journey.
  *
- * Two, so it lasts the length of the sticky stage — the hero and the section
- * after it — rather than being over by the time the hero has gone. The lines
- * are still on screen, still leaving, while the second section is being read.
+ * One entry per line, in the same order as STATEMENT_LINES:
+ *
+ *   [0]  Make it Right
+ *   [1]  Make it Simple
+ *   [2]  Make it Work
+ *
+ * `x` and `y` are pixels, `rotation` is degrees. `start` is what the line
+ * looks like at the top of the sticky stage and `end` is what it looks like at
+ * the bottom; every frame between is a straight interpolation of the three.
+ *
+ * `start.rotation` replaces the `rotate-*` class each line used to carry. Those
+ * classes were removed rather than kept, because a Tailwind rotate and an
+ * animated rotation both write `transform` on the same element and the
+ * stylesheet would decide the winner, not this file.
+ *
+ * Positive `x` moves right, positive `y` moves down — so the lines leave
+ * upward on negative `y`.
  */
-const SCROLL_FLIGHT_VIEWPORTS = 2;
+const SCROLL_KEYFRAMES = [
+  {
+    start: { x: 0, y: 0, rotation: -3 },
+    end: { x: -180, y: -160, rotation: -14 },
+  },
+  {
+    start: { x: 0, y: 0, rotation: 4 },
+    end: { x: 280, y: -190, rotation: 10 },
+  },
+  {
+    start: { x: 0, y: 0, rotation: 2 },
+    end: { x: -380, y: -220, rotation: -4 },
+  },
+] as const;
 
 /**
- * How far each line travels upward, as a multiple of the viewport height,
- * across the whole of SCROLL_FLIGHT_VIEWPORTS.
+ * The attribute `page.tsx` puts on the sticky stage, and the contract between
+ * the two files.
  *
- * Under 1, and deliberately: this is movement RELATIVE TO the layer the lines
- * sit in, and that layer is only pinned for the length of the hero. After that
- * it releases and travels up with the page, so the total distance a line
- * covers is its own flight plus the layer's. Distances that clear the frame on
- * their own would take the lines out before the section below arrived.
- *
- * Increasing down the list, so they separate on the way out rather than
- * leaving as a block. The order is line identity, matching PARALLAX_LIMIT —
- * line one is the topmost and travels least.
+ * Progress is measured against that element's own rectangle rather than
+ * `window.scrollY`, so the animation keeps its timing if content is ever added
+ * above the hero — the stage moves with the page and the maths follows it.
  */
-const SCROLL_FLIGHT = [0.7, 0.85, 1.0] as const;
+const SCROLL_STAGE_ATTRIBUTE = "data-scroll-stage";
 
 /** Long enough to lag behind the cursor, short enough not to feel like drift. */
 const PARALLAX_DURATION = 0.6;
 const PARALLAX_EASE = "power3.out";
 
-/**
- * Holds a normalised coordinate inside -1..1.
- *
- * Movement is a bounded function of the pointer's position and is never
- * accumulated, so the text cannot drift away however long the mouse moves.
- * The clamp covers the one case the maths does not: a pointer event arriving
- * from a child that overflows the hero, which `whitespace-nowrap` allows.
- */
-const clampUnit = (value: number) => Math.min(1, Math.max(-1, value));
-
-
 export default function HeroIntro() {
   const rootRef = useRef<HTMLDivElement>(null);
   const gradientRef = useRef<HTMLDivElement>(null);
   /** Bumped on every effect setup, so a stale cleanup can identify itself. */
-  const lineOneRef = useRef<HTMLDivElement>(null);
-  const lineTwoRef = useRef<HTMLDivElement>(null);
-  const lineThreeRef = useRef<HTMLDivElement>(null);
+  /** Layer 3 of each line: the only element the entrance timeline writes to. */
+  const entranceRefs = useRef<ElementSlots<HTMLDivElement>>([]);
   /** Layer 2 of each line: the only element the scroll flight writes to. */
-  const flightOneRef = useRef<HTMLDivElement>(null);
-  const flightTwoRef = useRef<HTMLDivElement>(null);
-  const flightThreeRef = useRef<HTMLDivElement>(null);
+  const flightRefs = useRef<ElementSlots<HTMLDivElement>>([]);
   /** Layer 4 of each line: the only element mouse parallax writes to. */
-  const parallaxOneRef = useRef<HTMLDivElement>(null);
-  const parallaxTwoRef = useRef<HTMLDivElement>(null);
-  const parallaxThreeRef = useRef<HTMLDivElement>(null);
+  const parallaxRefs = useRef<ElementSlots<HTMLDivElement>>([]);
+  /**
+   * Layer 5 of each line: the paragraph itself, and the only element the
+   * scroll flight's ROTATION writes to.
+   *
+   * The rotation lives here rather than on one of the wrappers because this is
+   * where it has always lived — as a `rotate-*` class. Moving it up a layer
+   * would rotate that layer's translation too, which is the exact trap the
+   * five-layer split exists to avoid.
+   */
+  const typeRefs = useRef<ElementSlots<HTMLParagraphElement>>([]);
   const generationRef = useRef(0);
   /** Gates the parallax effect. Set by finish(), which is the single end. */
   const [entranceDone, setEntranceDone] = useState(false);
+  /**
+   * Undefined until Lenis has mounted, and on any page where it has not.
+   *
+   * Read from the global store Lenis keeps in `root` mode, so no provider has
+   * to wrap this subtree. It arrives one commit late — effects run child-first,
+   * so this component's run before the one in the layout that fills the store
+   * — and the subscription re-renders when it lands.
+   */
+  const lenis = useLenis();
   const pathname = usePathname();
 
   useEffect(() => {
     const generation = ++generationRef.current;
     const root = document.documentElement;
     const gradient = gradientRef.current;
-    // Ordered, because the fall is staggered from the first line down.
-    const lines = [
-      lineThreeRef.current,
-      lineTwoRef.current,
-      lineOneRef.current,
-    ].filter((node): node is HTMLDivElement => node !== null);
+    /* Reversed, because the fall is staggered from the LAST line up: GSAP
+       applies a stagger in array order, so line three has to come first.
+       Reversing a filtered copy, never STATEMENT_LINES itself, which every
+       other index in this file is counted against. */
+    const lines = present(entranceRefs.current).reverse();
 
     /**
      * Puts every element into its finished state and clears anything
@@ -298,7 +366,6 @@ export default function HeroIntro() {
 
             root.setAttribute("data-intro", "armed");
 
-
             const timeline = gsap.timeline({
               onComplete: finish,
               onInterrupt: restore,
@@ -426,269 +493,60 @@ export default function HeroIntro() {
   }, [pathname]);
 
   /*
-    Scroll flight: the lines leave upward as the page scrolls past the hero.
+    Scroll is locked while the entrance plays.
 
-    A third effect for the same reason parallax is a second one — the entrance
-    owns a generation token and a microtask-deferred restore that exist to
-    survive Strict Mode, and nothing else should have to reason about them.
+    The sequence is composed to be watched from the top: the gradient sweeps,
+    the lines fall, the navbar arrives, the showreel materialises. Scrolling
+    through it shows none of that, only a half-finished page moving away.
 
-    It writes to layer 2 and nothing else. The entrance owns layer 3, placement
-    owns layer 1 and the tilt lives on the paragraph, so no two things ever
-    share a transform. Putting this on an existing layer would fold it into
-    that layer's matrix and the tilt would be lost at the end.
+    Released by `entranceDone`, which `finish()` sets — and `finish()` is the
+    single path every real ending goes through, including reduced motion, a
+    failed GSAP import and the watchdog. So the lock cannot outlive a broken
+    intro along any route the entrance already handles.
 
-    Gated on `entranceDone`, so scrolling during the first four seconds cannot
-    have the lines falling in and flying out at once.
+    The timeout is for the routes it does not. A scroll lock that survived an
+    unexpected throw would leave the page unusable, which is far worse than a
+    missed animation, so it also expires on its own.
 
-    A plain listener with a `quickSetter` rather than ScrollTrigger: the value
-    is a direct function of `scrollY` with no easing, timeline or pinning
-    involved, and the plugin would be 40kB to compute one number. Reads are
-    coalesced to one per frame.
+    `data-intro` is the condition rather than the pathname: the attribute is
+    set before paint by the script in layout.tsx and removed by restore(), so
+    this locks exactly when the intro is genuinely running. Reduced motion and
+    internal navigations never set it, and so are never locked. Neither is a
+    visitor with JavaScript off — Lenis is absent and the page just scrolls,
+    which is the right way for this to fail.
   */
   useEffect(() => {
-    if (!entranceDone) return;
+    if (!lenis || entranceDone) return;
+    if (!document.documentElement.hasAttribute("data-intro")) return;
 
-    const layers = [
-      flightOneRef.current,
-      flightTwoRef.current,
-      flightThreeRef.current,
-    ].filter((node): node is HTMLDivElement => node !== null);
-
-    /* Requiring the full set keeps each layer aligned with its own distance;
-       a short array would silently shift them up by one. */
-    if (layers.length !== SCROLL_FLIGHT.length) return;
-
-    let cancelled = false;
-    let context: { revert: () => void } | undefined;
-
-    const run = async () => {
-      const { gsap } = await import("gsap");
-      if (cancelled) return;
-
-      const media = gsap.matchMedia();
-
-      media.add("(prefers-reduced-motion: no-preference)", () => {
-        const setters = layers.map((layer) =>
-          gsap.quickSetter(layer, "y", "px"),
-        );
-        let frame = 0;
-
-        const update = () => {
-          frame = 0;
-          const height = window.innerHeight || 1;
-          /* Spread over the whole stage rather than the hero alone, so the
-             lines are still travelling while the section below is on screen.
-             Clamped, so they settle once they are gone rather than
-             accelerating away down the rest of the page. */
-          const progress = Math.min(
-            1,
-            Math.max(
-              0,
-              window.scrollY / (height * SCROLL_FLIGHT_VIEWPORTS),
-            ),
-          );
-          setters.forEach((set, index) => {
-            set(-progress * height * SCROLL_FLIGHT[index]);
-          });
-        };
-
-        /* Coalesced to one write per frame. Scroll fires far more often than
-           the screen repaints, and this reads layout-independent values only,
-           so there is nothing to gain from running on every event. */
-        const onScroll = () => {
-          if (!frame) frame = requestAnimationFrame(update);
-        };
-
-        /* Once immediately: a reload partway down the page must not start the
-           lines at zero and then jump. */
-        update();
-        window.addEventListener("scroll", onScroll, { passive: true });
-        window.addEventListener("resize", onScroll);
-
-        return () => {
-          if (frame) cancelAnimationFrame(frame);
-          window.removeEventListener("scroll", onScroll);
-          window.removeEventListener("resize", onScroll);
-        };
-      });
-
-      context = media;
-    };
-
-    void run();
+    lenis.stop();
+    const failsafe = setTimeout(() => lenis.start(), INTRO.total + 2000);
 
     return () => {
-      cancelled = true;
-      /* Runs the cleanup above, and reverts the inline transform, so the lines
-         are left exactly where the stylesheet puts them. */
-      context?.revert();
+      clearTimeout(failsafe);
+      lenis.start();
     };
-  }, [entranceDone]);
+  }, [lenis, entranceDone]);
 
-  /*
-    Mouse parallax on the three statement lines.
+  /* Both behaviours live in app/_lib/. Their knobs stay here, where they are
+     edited; only the machinery moved out. */
+  useStatementFlight({
+    enabled: entranceDone,
+    originRef: rootRef,
+    stageAttribute: SCROLL_STAGE_ATTRIBUTE,
+    layerRefs: flightRefs,
+    typeRefs,
+    keyframes: SCROLL_KEYFRAMES,
+  });
 
-    A second effect on purpose. The entrance effect's generation token,
-    `cancelled` flag and microtask-deferred restore exist to survive Strict
-    Mode's discarded first pass; keeping parallax out of it means neither has
-    to reason about the other.
-
-    It writes to layer 3 of each line and nothing else. The entrance owns
-    layer 2, the placement owns layer 1 and the tilt lives on the paragraph, so
-    no two things ever share a transform.
-  */
-  useEffect(() => {
-    if (!entranceDone) return;
-
-    const hero = rootRef.current;
-    const layers = [
-      parallaxOneRef.current,
-      parallaxTwoRef.current,
-      parallaxThreeRef.current,
-    ].filter((node): node is HTMLDivElement => node !== null);
-
-    // Requiring the full set keeps each layer aligned with its own limit;
-    // a short array would silently shift the depths up by one.
-    if (!hero || layers.length !== PARALLAX_LIMIT.length) return;
-
-    let cancelled = false;
-    let context: { revert: () => void } | undefined;
-
-    const run = async () => {
-      const { gsap } = await import("gsap");
-
-      // The import resolves on a later tick, by which time this effect may
-      // already have been cleaned up — Strict Mode guarantees it in
-      // development. The cleanup below has nothing to revert at that point, so
-      // a stale resolution must attach no listeners and build no tweens at all
-      // rather than leaving either behind.
-      if (cancelled) return;
-
-      const media = gsap.matchMedia();
-
-      media.add(
-        "(hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference)",
-        () => {
-          /*
-            One paused tween per property per layer, re-aimed by resetTo on
-            each pointer event. Nothing is allocated while the mouse moves, and
-            GSAP's ticker runs only while a tween is actually travelling — so
-            there is no standing animation loop, and none is needed.
-          */
-          const setters = layers.map((layer, index) => ({
-            x: gsap.quickTo(layer, "x", {
-              duration: PARALLAX_DURATION,
-              ease: PARALLAX_EASE,
-            }),
-            y: gsap.quickTo(layer, "y", {
-              duration: PARALLAX_DURATION,
-              ease: PARALLAX_EASE,
-            }),
-            limit: PARALLAX_LIMIT[index],
-          }));
-
-          /*
-            Whether the cursor was over the hero on the previous event.
-
-            `home()` restarts its tweens, so calling it on every event while
-            the pointer is elsewhere on the page would keep the lines
-            perpetually 600ms from home instead of letting them arrive. Only
-            the crossing matters.
-          */
-          let wasInside = false;
-
-          /** Ease everything back to its resting place. */
-          const home = () => {
-            wasInside = false;
-            for (const setter of setters) {
-              setter.x(0);
-              setter.y(0);
-            }
-          };
-
-          const onPointerMove = (event: PointerEvent) => {
-            // A hybrid laptop matches (hover: hover) and (pointer: fine) and
-            // can still be touched. Only a mouse should move these.
-            if (event.pointerType !== "mouse") return;
-
-            // Read per event rather than cached: browsers coalesce pointermove
-            // to roughly one per frame, so this is one layout read per frame,
-            // and it stays correct when the page is scrolled or resized
-            // without needing listeners for either.
-            const rect = hero.getBoundingClientRect();
-            if (rect.width === 0 || rect.height === 0) return;
-
-            const inside =
-              event.clientX >= rect.left &&
-              event.clientX <= rect.right &&
-              event.clientY >= rect.top &&
-              event.clientY <= rect.bottom;
-
-            if (!inside) {
-              if (wasInside) home();
-              return;
-            }
-            wasInside = true;
-
-            const nx = clampUnit(
-              ((event.clientX - rect.left) / rect.width) * 2 - 1,
-            );
-            const ny = clampUnit(
-              ((event.clientY - rect.top) / rect.height) * 2 - 1,
-            );
-
-            for (const setter of setters) {
-              setter.x(nx * setter.limit.x);
-              setter.y(ny * setter.limit.y);
-            }
-          };
-
-          /*
-            Listening on the window, but driven entirely by the hero's own
-            rectangle — the test above is what scopes this, not the element the
-            event happens to land on.
-
-            It has to work this way because the header is fixed at z-40 across
-            the top of the hero and swallows the pointer there whatever its
-            background is. Bound to the hero element, moving the cursor into
-            that 80-120px strip fired `pointerleave` and sent the lines home
-            mid-gesture. The rectangle does not care what is painted on top.
-
-            No extra cost while the pointer is elsewhere: the handler reads one
-            rect, fails the bounds test and returns.
-          */
-          window.addEventListener("pointermove", onPointerMove);
-          // Two ways the pointer can stop being over the hero without another
-          // move event: the gesture being cancelled by the browser, and the
-          // pointer leaving the document or the window losing focus with the
-          // cursor still inside. The last matters because nothing follows an
-          // alt-tab, so without it the lines would stay held off-centre.
-          window.addEventListener("pointercancel", home);
-          document.addEventListener("pointerleave", home);
-          window.addEventListener("blur", home);
-
-          return () => {
-            window.removeEventListener("pointermove", onPointerMove);
-            window.removeEventListener("pointercancel", home);
-            document.removeEventListener("pointerleave", home);
-            window.removeEventListener("blur", home);
-          };
-        },
-      );
-
-      context = media;
-    };
-
-    void run();
-
-    return () => {
-      cancelled = true;
-      // One call does all three: runs the cleanup above, kills the tweens
-      // created inside the context, and reverts the inline transforms they
-      // wrote — so the lines are left exactly where the stylesheet puts them.
-      context?.revert();
-    };
-  }, [entranceDone]);
+  useStatementParallax({
+    enabled: entranceDone,
+    heroRef: rootRef,
+    layerRefs: parallaxRefs,
+    limits: PARALLAX_LIMIT,
+    duration: PARALLAX_DURATION,
+    ease: PARALLAX_EASE,
+  });
 
   return (
     <div ref={rootRef} className="absolute inset-0 overflow-hidden">
@@ -702,7 +560,6 @@ export default function HeroIntro() {
         aria-hidden="true"
         className="intro-gradient absolute inset-0 bg-linear-to-b from-surface-base to-primary-300"
       />
-
 
       {/* Permanent statement. Real text, so it is left readable by assistive
           technology rather than hidden as decoration.
@@ -724,14 +581,18 @@ export default function HeroIntro() {
           own matrix, which both rotates the movement and loses the angle at
           the end.
 
-          Placement — on element 1:
+          Edited in STATEMENT_LINES at the top of this file, not here — the
+          markup below is one template mapped over that array, so a line's
+          placement and typography are the only things that vary.
+
+          `placement` — element 1:
             position  top-[18%] | bottom-[12%], plus a gutter utility
                       (left-gutter-mobile md:left-gutter-tablet xl:left-gutter-desktop)
                       Percentages track the hero height, so the arrangement
                       holds at every viewport size.
-          Keep `intro-line` — the reduced-motion rule targets it.
+          Keep `intro-line` on element 3 — the reduced-motion rule targets it.
 
-          Styling — on element 5:
+          `type` — element 5:
             family    font-display | font-body | font-accent
             size      an arbitrary font size — `text-` plus a clamp() of
                       min, preferred, max in square brackets. The vw figure in
@@ -744,59 +605,63 @@ export default function HeroIntro() {
                       font-medium 500 | font-semibold 600 | font-bold 700
             colour    text-white | text-text-primary | text-primary-300
             align     text-left | text-right
-            tilt      rotate-3 | -rotate-6 | rotate-[2.5deg]
+            tilt      NOT here any more — a line's angle is
+                      SCROLL_KEYFRAMES[n].start.rotation, in degrees, and its
+                      angle at the bottom of the stage is `end.rotation`
 
           The closing word carries `font-display` so the italic is EB Garamond
           against Poppins; Poppins has no italic loaded and would be faked. */}
       <div className={STATEMENT_BLOCK}>
-        {/* 1 — position */}
-        <div className="whitespace-nowrap absolute bottom-[20%] left-gutter-mobile md:left-gutter-tablet xl:left-[-5%]">
-          {/* 2 — flight */}
-          <div ref={flightOneRef}>
-            {/* 3 — entrance */}
-            <div ref={lineOneRef} className="intro-line">
-              {/* 4 — parallax */}
-              <div ref={parallaxOneRef}>
-                {/* 5 — type */}
-                <p className="-rotate-8 text-left font-body font-regular text-[clamp(7rem,12vw,20rem)] leading-[0.95] tracking-tight text-primary-250/50">
-                  Make it <i className="font-display">Right</i>
-                </p>
+        {STATEMENT_LINES.map((line, index) => (
+          /* 1 — position */
+          <div key={line.accent} className={line.placement}>
+            {/* 2 — flight */}
+            <div
+              ref={(node) => {
+                flightRefs.current[index] = node;
+              }}
+              /* The start keyframe, rendered by the server. Without it the
+                 line would paint at 0,0 for one frame before the effect ran —
+                 and under reduced motion, or with JavaScript off, this is the
+                 only placement it ever gets. */
+              style={{
+                transform: `translate3d(${SCROLL_KEYFRAMES[index].start.x}px, ${SCROLL_KEYFRAMES[index].start.y}px, 0)`,
+              }}
+            >
+              {/* 3 — entrance */}
+              <div
+                ref={(node) => {
+                  entranceRefs.current[index] = node;
+                }}
+                className="intro-line"
+              >
+                {/* 4 — parallax */}
+                <div
+                  ref={(node) => {
+                    parallaxRefs.current[index] = node;
+                  }}
+                >
+                  {/* 5 — type */}
+                  <p
+                    ref={(node) => {
+                      typeRefs.current[index] = node;
+                    }}
+                    className={line.type}
+                    /* The start rotation, for the same reasons as the
+                       translation above. This replaces the `rotate-*` class
+                       each line used to carry — see SCROLL_KEYFRAMES. */
+                    style={{
+                      transform: `rotate(${SCROLL_KEYFRAMES[index].start.rotation}deg)`,
+                    }}
+                  >
+                    {line.lead}
+                    <i className="font-display">{line.accent}</i>
+                  </p>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-        {/* 1 — position */}
-        <div className="whitespace-nowrap absolute bottom-[5%] right-gutter-mobile md:right-gutter-tablet xl:right-[-10%]">
-          {/* 2 — flight */}
-          <div ref={flightTwoRef}>
-            {/* 3 — entrance */}
-            <div ref={lineTwoRef} className="intro-line">
-              {/* 4 — parallax */}
-              <div ref={parallaxTwoRef}>
-                {/* 5 — type */}
-                <p className="rotate-4 text-right font-body font-light text-[clamp(7rem,12vw,20rem)] leading-[0.95] tracking-tight text-primary-300">
-                  Make it <i className="font-display">Simple</i>
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-        {/* 1 — position */}
-        <div className="whitespace-nowrap absolute bottom-[-8%] left-gutter-mobile md:left-gutter-tablet xl:left-[6%]">
-          {/* 2 — flight */}
-          <div ref={flightThreeRef}>
-            {/* 3 — entrance */}
-            <div ref={lineThreeRef} className="intro-line">
-              {/* 4 — parallax */}
-              <div ref={parallaxThreeRef}>
-                {/* 5 — type */}
-                <p className="rotate-2 text-left font-body font-medium text-[clamp(7rem,12vw,20rem)] leading-[0.95] tracking-tight text-primary-350">
-                  Make it <i className="font-display">Work</i>
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
+        ))}
       </div>
 
     </div>

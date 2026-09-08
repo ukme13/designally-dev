@@ -96,6 +96,42 @@ export function MenuStreamIcon({ className, ...props }: IconProps) {
 }
 
 /**
+ * The two-tone "))" mark that sits before a section title.
+ *
+ * Two halves of the same curve, the back one a step lighter than the front:
+ * `primary-250` behind `primary-300`. Those are the palette entries for the
+ * exact pair the original mark hard-codes as #F78267 and #F56341, so this is
+ * the same drawing, taking its colour from the token layer instead of from
+ * hexes baked into the file. The tokens mean a palette change reaches it.
+ *
+ * The 18x40 viewBox is the source artwork's. Height is the dimension worth
+ * setting — `w-auto` then keeps the width honest at any size.
+ */
+export function DoubleChevronIcon({ className, ...props }: IconProps) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="18"
+      height="40"
+      viewBox="0 0 18 40"
+      fill="none"
+      className={className}
+      aria-hidden="true"
+      {...props}
+    >
+      <path
+        d="M9 39.5L9 0.5C14.521 5.25546 18 12.2282 18 19.9967C18 27.7653 14.521 34.7413 9 39.5Z"
+        className="fill-primary-250"
+      />
+      <path
+        d="M-7.5107e-07 39.5L9.53674e-07 0.5C5.52098 5.25546 9 12.2282 9 19.9967C9 27.7653 5.52098 34.7413 -7.5107e-07 39.5Z"
+        className="fill-primary-300"
+      />
+    </svg>
+  );
+}
+
+/**
  * White wave that masks the top edge of the closing block, so the section
  * reads as a curve rising out of the page above it. `preserveAspectRatio`
  * is none so it stretches to whatever height it is given.

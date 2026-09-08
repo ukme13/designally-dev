@@ -1157,6 +1157,11 @@ export default function Showreel() {
             role="group"
             aria-label="Choose a project"
             ref={controlsRef}
+            /* Lenis owns the document's wheel and touch events. Without this
+               the strip could not be swiped or scrolled horizontally — the
+               gesture would be taken for the page. The attribute needs Lenis's
+               own stylesheet, which smooth-scroll.tsx imports. */
+            data-lenis-prevent
             /*
               One line that scrolls, rather than a block that wraps.
 

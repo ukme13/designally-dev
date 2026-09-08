@@ -1,6 +1,6 @@
 # Implementation Status
 
-Updated: 7 September 2026
+Updated: 8 September 2026
 
 A snapshot of what exists in the codebase, what is placeholder, and what has
 not been started. Read alongside `docs/updates/` for the record of how each
@@ -117,6 +117,34 @@ The stage hands over to a solid `primary-300` section and then to one fading
 back to the page background. All three joins depend on `primary-300` being the
 same value — see `ADR-003`.
 
+### Homepage work showcase
+
+A full-bleed row of the four approved posters below the sticky stage. Cards are
+sized by HEIGHT and take their width from each image's own ratio, so a CMS can
+later supply any aspect without cropping or letterboxing. Three copies of the
+set, because the offset wraps after one and the track has to stay wider than the
+viewport at that moment.
+
+The motion is in `app/_lib/use-showcase-drift.ts`: a resting leftward drift, a
+push coupled to the page's scroll velocity that reverses on an upward flick, and
+pointer drag by mouse or finger with a throw on release. One frame loop writes
+one transform; the pointer handlers bank movement rather than writing it
+themselves. Reduced motion swaps the row for a real horizontal scroller.
+
+### Homepage section title
+
+`section-title.tsx` — the old site's "Case Study" heading rebuilt on this
+project's tokens: the two-tone `))` mark, a heading, and a block of supporting
+content beside it. The mark is sized in `em` so it tracks the heading through
+its whole clamp rather than needing a breakpoint. Ported from
+`designally-clone`, not from a screenshot.
+
+### Adaptive header logo tone
+
+The floating header's monogram turns white over sections that carry
+`data-header-tone="light"`, and back to orange elsewhere. Nothing samples
+pixels; sections declare their own background. See `ADR-004`.
+
 ### Footer
 
 Reproduces the original closing block: white wave divider, "Let's work
@@ -190,10 +218,16 @@ remain on the brief's "evidence needed before launch" list.
   screen at first paint now, so `preload` no longer stays `"none"` — LAGA
   (1,063,184 B) is part of the initial media cost for every visitor, where
   before only those who scrolled paid it. Not measured, no decision taken.
-- Two placeholder sections after the sticky stage, carrying the literal text
-  "test", "next section" and "last section". They exist to hold the colour
-  handover and **must be replaced before launch**; whatever replaces them has
-  to keep their backgrounds.
+- One placeholder section after the sticky stage, carrying the literal text
+  "next section". It exists to hold the colour handover and **must be replaced
+  before launch**; whatever replaces it has to keep its background. The section
+  that followed it now holds the work showcase and its title.
+- **The showcase copy is unreviewed.** The paragraph beside "Case Study" and
+  the "View selected work" link were supplied in a message, not taken from an
+  approved source.
+- **The showcase row has no pause control.** It moves whenever the page is not
+  still, which is a WCAG 2.2.2 question for moving content. Reduced motion
+  stops it entirely, but that is a different audience.
 
 ### Waiting on visual review
 
@@ -213,14 +247,21 @@ On the header: whether the navbar background's 24px/8px scroll hysteresis suits
 real use, and whether the drawer's 250 ms row exit plus 500 ms sweep reads as
 deliberate or slow. Neither could be judged without a device.
 
+On the showcase: `DRIFT`, `SCROLL_COUPLING`, `FLING_DECAY` and `FLING_LIMIT` are
+all first guesses, and the drag has only been reasoned about — the vertical
+versus horizontal split on a phone needs a real finger. The logo-tone marker
+covering the top third of the fading band is a judgement about where that
+gradient stops carrying white.
+
 ## Next recommended task
 
-**Replace the three homepage placeholders.**
+**Replace the last homepage placeholder.**
 
-The sticky stage works but hands over to sections reading "test", "next
-section" and "last section". They are the only invented content on the site and
-the only thing on the homepage that could not ship. The colour contract they
-carry is documented in `ADR-003`.
+The sticky stage hands over to a section reading "next section". It is the only
+invented content left on the homepage and the only thing there that could not
+ship. The colour contract it carries is documented in `ADR-003`, and whatever
+replaces it needs `data-header-tone="light"` to keep the logo readable — see
+`ADR-004`.
 
 After that, **organisation structured data plus an `og:image`.**
 

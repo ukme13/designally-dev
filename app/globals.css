@@ -251,3 +251,43 @@ html[data-intro] [data-site-floating] {
   }
 
 }
+
+/*
+  Adaptive logo colour.
+
+  Both marks are brand-orange fills seen through an SVG mask, so the thing that
+  decides the logo's colour is its BACKGROUND-COLOR. That is why the colour is
+  declared here rather than left as a `bg-*` utility on the element: two rules
+  competing for one property would be settled by stylesheet order, not by the
+  order the classes are written in, and the project rules warn about exactly
+  that. `.site-logo` owns background-color; nothing else sets it.
+
+  `--ink-on-accent` rather than a bare white: the mask turns this background
+  into the logo's ink, and that token is what this palette calls ink sitting on
+  a brand-coloured surface.
+
+  The override is scoped to the FLOATING header alone. The top bar's wordmark
+  reads well in orange and is left that way by choice; the mobile drawer paints
+  its own light background and is a sibling of both, so it is out of reach of
+  this selector too. Adding `[data-site-header][data-logo-tone="light"]
+  .site-logo` to the rule below is all it would take to bring the top bar in —
+  see the note in use-header-logo-tone.ts about the background it paints itself
+  below `md`.
+
+  Which sections ask for this, and how the attribute gets here, is in
+  app/_lib/use-header-logo-tone.ts.
+*/
+.site-logo {
+  background-color: var(--color-action-primary);
+  transition: background-color 300ms var(--ease-standard);
+}
+
+[data-site-floating][data-logo-tone="light"] .site-logo {
+  background-color: var(--ink-on-accent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .site-logo {
+    transition: none;
+  }
+}
