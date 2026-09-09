@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { present } from "@/app/_lib/element-slots";
 import type { ElementSlots } from "@/app/_lib/element-slots";
+import { useGradientFade } from "@/app/_lib/use-gradient-fade";
 import { useStatementFlight } from "@/app/_lib/use-statement-flight";
 import { useStatementParallax } from "@/app/_lib/use-statement-parallax";
 import {
@@ -51,7 +52,7 @@ import {
  * fight it, with stylesheet order deciding the winner rather than the order
  * written here.
  */
-const STATEMENT_BLOCK = "absolute inset-0 pointer-events-none opacity-20";
+const STATEMENT_BLOCK = "absolute inset-0 pointer-events-none opacity-30";
 
 /**
  * The three lines, in line identity order — one, two, three.
@@ -530,6 +531,13 @@ export default function HeroIntro() {
 
   /* Both behaviours live in app/_lib/. Their knobs stay here, where they are
      edited; only the machinery moved out. */
+  /* The gradient dissolves into the solid orange beneath it as the stage
+     scrolls, finishing exactly as the pin releases. See use-gradient-fade.ts. */
+  useGradientFade({
+    gradientRef,
+    stageAttribute: SCROLL_STAGE_ATTRIBUTE,
+  });
+
   useStatementFlight({
     enabled: entranceDone,
     originRef: rootRef,

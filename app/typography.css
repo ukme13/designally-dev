@@ -156,7 +156,7 @@
 @utility type-accent-xl {
   font-family: var(--font-accent);
   font-size: var(--text-accent-xl);
-  line-height: 1.25;
+  line-height: 1.1;
   letter-spacing: 0.01em;
 }
 
@@ -164,6 +164,6 @@
 @utility type-accent-2xl {
   font-family: var(--font-accent);
   font-size: var(--text-accent-2xl);
-  line-height: 1.15;
+  line-height: 1.0;
   letter-spacing: 0.01em;
 }

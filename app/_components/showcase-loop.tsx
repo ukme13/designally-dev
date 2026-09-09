@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useRef } from "react";
 
+import HoverCursor from "@/app/_components/hover-cursor";
 import { SHOWREEL } from "@/app/_lib/showreel";
 import { useShowcaseDrift } from "@/app/_lib/use-showcase-drift";
 
@@ -129,27 +130,44 @@ export default function ShowcaseLoop() {
   useShowcaseDrift({ containerRef, trackRef, sequenceRef });
 
   return (
-    <div
-      ref={containerRef}
-      /* `touch-pan-y` is the load-bearing one: it leaves vertical panning with
-         the browser so the page still scrolls under a finger, while handing
-         horizontal movement to the pointer handlers. Without it a phone claims
-         the whole gesture and the row never moves. Under reduced motion the
-         container is a real scroller and needs its default touch behaviour
-         back, so both it and the grab cursor are `motion-safe` only. */
-      className="w-full select-none motion-safe:cursor-grab motion-safe:touch-pan-y motion-safe:overflow-hidden motion-safe:active:cursor-grabbing motion-reduce:overflow-x-auto"
-    >
-      <div ref={trackRef} className="flex w-max">
-        {Array.from({ length: SEQUENCES }, (_, copy) => (
-          <Sequence
-            key={copy}
-            /* Only the first is measured, and only the first is read: every
-               copy after it is the same pictures again. */
-            ref={copy === 0 ? sequenceRef : undefined}
-            duplicate={copy > 0}
-          />
-        ))}
+    /*
+      A positioning wrapper whose only job is to hold the hover cursor.
+
+      The circle straddles an edge when the pointer is on one, so it cannot live
+      inside the row below — that row is `overflow-hidden`, which is what makes
+      the loop seamless, and it would cut the circle in half along the top and
+      bottom. Out here it is positioned against a box of the same bounds that
+      clips nothing. The row itself still owns the pointer events.
+    */
+    <div className="relative w-full">
+      <div
+        ref={containerRef}
+        /* `touch-pan-y` is the load-bearing one: it leaves vertical panning
+           with the browser so the page still scrolls under a finger, while
+           handing horizontal movement to the pointer handlers. Without it a
+           phone claims the whole gesture and the row never moves. Under reduced
+           motion the container is a real scroller and needs its default touch
+           behaviour back, so both it and the grab cursor are `motion-safe`
+           only. */
+        className="w-full select-none motion-safe:cursor-grab motion-safe:touch-pan-y motion-safe:overflow-hidden motion-safe:active:cursor-grabbing motion-reduce:overflow-x-auto"
+      >
+        <div ref={trackRef} className="flex w-max">
+          {Array.from({ length: SEQUENCES }, (_, copy) => (
+            <Sequence
+              key={copy}
+              /* Only the first is measured, and only the first is read: every
+                 copy after it is the same pictures again. */
+              ref={copy === 0 ? sequenceRef : undefined}
+              duplicate={copy > 0}
+            />
+          ))}
+        </div>
       </div>
+
+      {/* The grab cursors above stay as the fallback: they are what a visitor
+          sees if the custom cursor never activates. While it is active it wins
+          by inline style rather than by specificity — see hover-cursor.tsx. */}
+      <HoverCursor areaRef={containerRef} />
     </div>
   );
 }

@@ -103,6 +103,7 @@ const REVEAL_THRESHOLD = 0.1;
 export default function MaskedText({
   lines,
   className,
+  as: Tag = "p",
 }: {
   /**
    * One entry per line. The component never breaks text itself.
@@ -130,8 +131,18 @@ export default function MaskedText({
   lines: readonly ReactNode[];
   /** Typography for the passage. Composed `type-*` utilities belong here. */
   className?: string;
+  /**
+   * The element to render. A paragraph unless told otherwise.
+   *
+   * Here because a section heading has to stay a heading. Wrapping this
+   * component in an `<h2>` is not an option — it renders a `<p>`, and a `<p>`
+   * inside an `<h2>` is invalid, which browsers "fix" by closing the heading
+   * early and leaving the words outside it. Nothing about the reveal changes
+   * with the tag; only the semantics do.
+   */
+  as?: "p" | "h1" | "h2" | "h3";
 }) {
-  const rootRef = useRef<HTMLParagraphElement>(null);
+  const rootRef = useRef<HTMLElement>(null);
 
   useBeforePaint(() => {
     const root = rootRef.current;
@@ -193,7 +204,13 @@ export default function MaskedText({
   }, []);
 
   return (
-    <p ref={rootRef} className={`group ${className ?? ""}`}>
+    <Tag
+      /* The tag is chosen at runtime, so its ref type is a union React cannot
+         narrow here. Everything this component does with the node — one data
+         attribute, two observers — is on HTMLElement. */
+      ref={rootRef as React.RefObject<HTMLHeadingElement & HTMLParagraphElement>}
+      className={`group ${className ?? ""}`}
+    >
       {lines.map((line, index) => (
         /* The mask. Nothing but a clipping box — it takes no styling, so the
            typography above governs the line box it clips to. */
@@ -208,6 +225,6 @@ export default function MaskedText({
           </span>
         </span>
       ))}
-    </p>
+    </Tag>
   );
 }

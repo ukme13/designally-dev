@@ -30,8 +30,11 @@ import { DoubleChevronIcon } from "@/app/_components/icons";
  * proportion at any size the clamp lands on.
  *
  * The two halves share a baseline from `lg` up — the original's breakpoint for
- * this row — and stack below it, where a display-size heading and a sentence
- * will not share a line without one of them wrapping badly.
+ * this row — and stack into one column below it, where a display-size heading
+ * and a sentence will not share a line without one of them wrapping badly.
+ *
+ * `lg:max-w-*` on the note is gone: the grid decides its width now, so a max
+ * width would only be a second, quieter answer to the same question.
  *
  * Renders an `h2`. Every section using this sits under the page's own `h1`.
  */
@@ -43,8 +46,23 @@ export default function SectionTitle({
   note?: ReactNode;
 }) {
   return (
-    <div className="mx-auto flex w-full max-w-page flex-col gap-4 px-gutter-mobile lg:flex-row lg:items-baseline lg:justify-between lg:gap-8 md:px-gutter-tablet xl:px-gutter-desktop">
-      <h2 className="flex items-center gap-[0.4em] font-sans text-accent-xl font-medium text-text-primary">
+    /*
+      The page's section grid: twelve columns, title on the left four, content
+      on the right six, a two-column gutter between. The situations and "how we
+      think" sections lay out the same way, so a reader crossing them sees one
+      column structure rather than three.
+
+      A grid rather than the `justify-between` flex row this used to be. That
+      row sized both halves from their contents, so the gap between them moved
+      with the length of the heading; the grid pins both edges instead.
+
+      Placement is stated as start and end LINES, never a span. `col-span-*`
+      compiles to the shorthand `grid-column: span N / span N`, which rewrites
+      both ends and silently overrides any `col-end-*` beside it, whichever
+      order they are written in.
+    */
+    <div className="mx-auto grid w-full max-w-page gap-6 px-gutter-mobile md:px-gutter-tablet lg:grid-cols-12 lg:items-baseline lg:gap-8 xl:px-gutter-desktop">
+      <h2 className="flex items-center gap-[0.4em] font-sans text-accent-xl font-medium text-text-primary lg:col-start-1 lg:col-end-5">
         <DoubleChevronIcon className="h-[1em] w-auto shrink-0" />
         {/* The title is wrapped so it is ONE flex item. A bare text node in a
             flex container becomes an anonymous flex item of its own, so
@@ -61,7 +79,7 @@ export default function SectionTitle({
           wrapper it was meant to be in. This element carries no typography for
           the same reason: the caller sets it on whatever it puts here. */}
       {note ? (
-        <div className="flex flex-col items-start gap-6 text-text-primary lg:max-w-5xl">
+        <div className="flex flex-col items-start gap-6 text-text-primary lg:col-start-7 lg:col-end-13">
           {note}
         </div>
       ) : null}

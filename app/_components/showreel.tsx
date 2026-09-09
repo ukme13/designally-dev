@@ -1,23 +1,19 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 
+import HoverCursor from "@/app/_components/hover-cursor";
 import ShowreelPixels from "@/app/_components/showreel-pixels";
 import { subscribeShowreelCue } from "@/app/_lib/intro";
+import { useShowreelEntrance } from "@/app/_lib/use-showreel-entrance";
+import { useShowreelStrip } from "@/app/_lib/use-showreel-strip";
 import {
   ADVANCE_FALLBACK_MS,
   LOAD_MARGIN,
-  ENTRANCE_MS,
-  PIXEL_CELL_SCALE,
-  PIXEL_DOT_HOLD_MS,
-  PIXEL_FADE_MS,
-  PIXEL_MORPH_MS,
   PIXEL_COVER_MAX_MS,
   PIXEL_COLUMNS,
   PIXEL_ROWS,
   pixelGrid,
-  pixelOrder,
-  PIXEL_REVEAL_MS,
   SHOWREEL,
   SHOWREEL_MASK_ID,
   type PixelGrid,
@@ -245,6 +241,15 @@ export default function Showreel() {
      component's effects run at all) still resolves immediately. */
   useEffect(() => subscribeShowreelCue(() => setHeroCued(true)), []);
 
+  /* Centres the breadcrumb on the current name, and hands back the function
+     the click handler needs to do the same on a switch. */
+  const alignToNearestCopy = useShowreelStrip({
+    controlsRef,
+    index,
+    reduced,
+    captionVisible,
+  });
+
   /*
     Keep the grid matched to the rectangle's shape.
 
@@ -276,130 +281,6 @@ export default function Showreel() {
     return () => observer.disconnect();
   }, []);
 
-  /**
-   * Slide the strip so the middle copy's pill lands where its nearest twin is.
-   *
-   * Every switch would otherwise send the strip travelling. The pill that
-   * becomes active is always the middle copy's, so if the visitor is looking
-   * at a different copy — or if the carousel wraps from the last project back
-   * to the first — the centring below smooth-scrolls a whole copy-width across
-   * the strip. Pressing LAGA on the right, or simply letting BITAZZA advance
-   * to LAGA, ran the whole row leftwards.
-   *
-   * The copies are identical, so the fix is to make the two indistinguishable
-   * before the scroll begins. Whichever copy of the incoming pill is nearest
-   * the middle of the strip is where the eye already is; moving the strip by
-   * the distance between that twin and the real pill puts the real one exactly
-   * there. Nothing appears to move, and the smooth scroll that follows has a
-   * short distance to travel, in whichever direction is nearest.
-   *
-   * Called from `selectProject`, so it covers every route a switch can take —
-   * a press, `crossfadeAt` advancing, and the stall fallback alike. It ran in
-   * the click handler alone at first, which fixed presses and left the
-   * automatic advance jumping.
-   *
-   * `scrollLeft` written directly rather than through `scrollTo`, because this
-   * must land in the same frame as the switch. Any easing here would be the
-   * jump it exists to hide.
-   */
-  const alignToNearestCopy = (next: number) => {
-    const strip = controlsRef.current;
-    if (!strip) return;
-    if (getComputedStyle(strip).overflowX === "visible") return;
-
-    const real = strip.querySelector<HTMLElement>(
-      `[data-copy="1"][data-entry="${next}"]`,
-    );
-    if (!real) return;
-
-    const stripBox = strip.getBoundingClientRect();
-    const middle = stripBox.left + stripBox.width / 2;
-    const centreOf = (element: HTMLElement) => {
-      const box = element.getBoundingClientRect();
-      return box.left + box.width / 2;
-    };
-
-    let nearest = real;
-    let shortest = Infinity;
-    for (const twin of strip.querySelectorAll<HTMLElement>(
-      `[data-entry="${next}"]`,
-    )) {
-      const distance = Math.abs(centreOf(twin) - middle);
-      if (distance < shortest) {
-        shortest = distance;
-        nearest = twin;
-      }
-    }
-    if (nearest === real) return;
-
-    const shift =
-      nearest.getBoundingClientRect().left - real.getBoundingClientRect().left;
-    const desired = strip.scrollLeft - shift;
-    /* Refuse rather than clamp. A clamped shift would move the strip somewhere
-       the eye did not expect, which is the fault this exists to prevent; a long
-       smooth scroll is the lesser of the two. */
-    if (desired < 0 || desired > strip.scrollWidth - strip.clientWidth) return;
-    strip.scrollLeft = desired;
-  };
-
-  /*
-    Keep the active pill centred in its strip.
-
-    No padding involved any more. The strip carries three copies of the set, so
-    the middle copy's active pill always has real pills on both sides of it and
-    the scroll position it needs is comfortably inside the scrollable range —
-    with four projects the middle copy sits roughly a third of the way in, far
-    from either end.
-
-    `getComputedStyle(...).overflowX` decides whether any of this applies,
-    rather than a second copy of the `md` breakpoint: the strip is a scroller
-    exactly when its own classes have made it one, and asking the element keeps
-    the two from drifting apart.
-  */
-  useEffect(() => {
-    const strip = controlsRef.current;
-    if (!strip) return;
-
-    const centre = () => {
-      if (getComputedStyle(strip).overflowX === "visible") return;
-      /* Only the middle copy carries this, so the target is never one of the
-         decorative pills. */
-      const active = strip.querySelector<HTMLElement>('[data-active="true"]');
-      if (!active) return;
-
-      /*
-        Measured from rendered rectangles, not `offsetLeft`. That is relative
-        to the nearest positioned ancestor, which is not this strip, so the
-        arithmetic would be against the wrong origin.
-
-        And `scrollTo` on the strip, never `scrollIntoView` on the pill: the
-        latter walks up the ancestor chain and can scroll the page itself,
-        which on a phone means the hero jumping every time the showreel
-        advances on its own. This touches one element's scroll offset.
-      */
-      const stripBox = strip.getBoundingClientRect();
-      const activeBox = active.getBoundingClientRect();
-      const drift =
-        activeBox.left +
-        activeBox.width / 2 -
-        (stripBox.left + stripBox.width / 2);
-
-      strip.scrollTo({
-        left: strip.scrollLeft + drift,
-        /* An automatic advance every few seconds should not smooth-scroll at
-           someone who asked for less motion; it still moves, just without the
-           travel. */
-        behavior: reduced ? "auto" : "smooth",
-      });
-    };
-
-    centre();
-    /* Re-run on resize, which is also what covers crossing the md breakpoint
-       in either direction. */
-    const observer = new ResizeObserver(centre);
-    observer.observe(strip);
-    return () => observer.disconnect();
-  }, [index, reduced, captionVisible]);
 
   /* Read live, so changing the system setting does not need a reload. */
   useEffect(() => {
@@ -501,239 +382,21 @@ export default function Showreel() {
   }, [revealDone, mayLoad, visible, heroCued]);
 
   /*
-    The entrance.
+    The pixel entrance. See use-showreel-entrance.ts, and docs/specs/SHOWREEL.md.
 
-      0 - 1300ms   cells fade in, centre outward, each as a CIRCLE and
-                   nothing more
-        then       each cell holds as a dot for 200ms
-        then       each cell morphs from circle to square over 550ms, eased
-
-    Per cell, not per grid: a cell's morph is timed from its own arrival, so
-    the wave of dots and the wave of squares chase each other across the
-    rectangle. Total 2050ms.
-
-    That is the whole thing. A circle hold and a circle-to-rectangle morph of
-    the container used to follow; both were removed on 7 September 2026, and
-    with them the clip-path measurement and the Chrome two-value-inset
-    workaround that the morph required.
-
-    The video's container is masked, not covered. Cells begin at opacity 0, so
-    the rectangle is transparent and the hero's gradient shows through it; they
-    fade in and the film materialises out of the page. Nothing is painted over
-    the video at any point, which is why there is no longer a cover colour to
-    choose.
-
-    Cells are driven straight on the DOM nodes: one tween over 144 elements
-    with a per-element delay, so there is no React update per pixel and no
-    animation frame loop of our own.
-
-    The mask can never be left half-applied. Six routes end it — the timeline
-    completing, a failed import, either watchdog, a project switch, and this
-    effect being cleaned up mid-flight — and every one of them leaves the whole
-    video showing.
+    `useCallback` with no dependencies because `setRevealDone` is stable and
+    this lands in the hook's dependency array — a fresh function each render
+    would tear the timeline down and rebuild it on every one.
   */
-  useEffect(() => {
-    if (!canReveal) return;
-    const mask = gridRef.current;
-    if (!mask) return;
+  const handleRevealed = useCallback(() => setRevealDone(true), []);
+  useShowreelEntrance({
+    gridRef,
+    boxRef,
+    canReveal,
+    grid,
+    onRevealed: handleRevealed,
+  });
 
-    let cancelled = false;
-    let running: { kill: () => void } | undefined;
-    /* If the timeline never reports back, the video still arrives. */
-    const watchdog = setTimeout(() => setRevealDone(true), ENTRANCE_MS + 1500);
-
-    const cells = Array.from(mask.children) as SVGRectElement[];
-
-    /*
-      Cell geometry in objectBoundingBox units — fractions of the masked
-      element, so none of this needs measuring and none of it changes on
-      resize. Read back from the rendered attributes rather than recomputed, so
-      there is exactly one definition of where a cell sits and it lives in
-      showreel-pixels.tsx.
-    */
-    const slot = (cell: SVGRectElement) => ({
-      x: cell.x.baseVal.value,
-      y: cell.y.baseVal.value,
-      width: cell.width.baseVal.value,
-      height: cell.height.baseVal.value,
-    });
-    const finished = cells.map(slot);
-
-    /*
-      The start state: a true circle, centred in the cell.
-
-      Sized in PIXELS and converted back, rather than taking half of each
-      cell's own side. objectBoundingBox units are fractions of a box that is
-      not square, so equal fractions are not equal lengths — and `pixelGrid`
-      rounds its columns and rows to integers, which leaves cells up to about
-      11% off square. Deriving `rx` and `ry` from the cell's own width and
-      height fed that error straight into the shape: at 75-100px cells it read
-      as a visible ellipse, taller or wider than round depending on the
-      viewport.
-
-      A circle needs equal PIXEL radii, so the diameter is taken from the
-      shorter side of the cell and both axes are given that same length,
-      converted back through the box's own dimensions. The rect is then square
-      on screen whatever shape its cell is, and `rx`/`ry` at half of each side
-      round it fully.
-
-      `finished` still fills the cell exactly — the morph ends on a grid that
-      tiles, and only the start is a circle.
-
-      Grown rather than transformed. A `scale()` on an SVG element inside an
-      objectBoundingBox mask has to reason about a non-uniform user space and a
-      transform origin; animating the four geometry attributes has neither
-      problem and is the same number of values GSAP would write anyway.
-    */
-    const box = boxRef.current?.getBoundingClientRect();
-    const started = finished.map((slot) => {
-      /* Without a measurable box there is nothing to correct against, so fall
-         back to the cell's own proportions rather than dividing by zero. */
-      const diameter =
-        box && box.width > 0 && box.height > 0
-          ? Math.min(slot.width * box.width, slot.height * box.height) *
-            PIXEL_CELL_SCALE
-          : 0;
-      const width = diameter && box ? diameter / box.width : slot.width * PIXEL_CELL_SCALE;
-      const height = diameter && box ? diameter / box.height : slot.height * PIXEL_CELL_SCALE;
-      return {
-        x: slot.x + (slot.width - width) / 2,
-        y: slot.y + (slot.height - height) / 2,
-        width,
-        height,
-        rx: width / 2,
-        ry: height / 2,
-      };
-    });
-
-    /**
-     * Every cell at its finished state: square, exactly filling its slot, fully
-     * opaque. The mask is then solid white and hides nothing, so the video is
-     * whole whether or not the mask is still applied.
-     *
-     * This is what makes an interrupted run safe. The old cover had to be
-     * removed from the DOM to stop hiding things; a mask only has to be
-     * completed.
-     */
-    const finish = () => {
-      cells.forEach((cell, index) => {
-        const slot = finished[index];
-        cell.setAttribute("x", String(slot.x));
-        cell.setAttribute("y", String(slot.y));
-        cell.setAttribute("width", String(slot.width));
-        cell.setAttribute("height", String(slot.height));
-        cell.setAttribute("rx", "0");
-        cell.setAttribute("ry", "0");
-        cell.setAttribute("opacity", "1");
-        cell.style.removeProperty("will-change");
-      });
-    };
-
-    const run = async () => {
-      try {
-        const { gsap } = await import("gsap");
-        /* The import resolves on a later tick, by which time this effect may
-           already have been cleaned up — Strict Mode guarantees it in
-           development. Building the timeline then would animate nodes nothing
-           is watching. */
-        if (cancelled) return;
-
-        gsap.set(cells, {
-          opacity: 0,
-          willChange: "opacity",
-          attr: {
-            x: (index: number) => started[index].x,
-            y: (index: number) => started[index].y,
-            width: (index: number) => started[index].width,
-            height: (index: number) => started[index].height,
-            rx: (index: number) => started[index].rx,
-            ry: (index: number) => started[index].ry,
-          },
-        });
-
-        const timeline = gsap.timeline({
-          onComplete: () => {
-            finish();
-            setRevealDone(true);
-          },
-        });
-
-        /*
-          Each cell's own delay, from its precomputed place in the order.
-          Function-based, so the value is per element rather than a single
-          distributed step. Both phases use it, which is what keeps a cell's
-          morph tied to its own arrival rather than to the grid's.
-        */
-        const order = pixelOrder(grid.columns, grid.rows);
-        const stagger = (cellIndex: number) =>
-          (order[cellIndex] * (PIXEL_REVEAL_MS - PIXEL_FADE_MS)) / 1000;
-
-        timeline
-          /* Phase 1 — appear, as a circle. Shape is deliberately untouched
-             here: the cell has to exist on screen as a circle before it is
-             allowed to become anything else. */
-          .to(
-            cells,
-            {
-              opacity: 1,
-              duration: PIXEL_FADE_MS / 1000,
-              ease: "none",
-              stagger,
-            },
-            0,
-          )
-          /*
-            Phase 3 — circle to square. Radius and size move together, so the
-            cell shrinks into its slot exactly as it loses its corners.
-
-            Placed at an absolute time and given the SAME stagger, so every
-            cell's morph begins exactly PIXEL_DOT_HOLD_MS after its own fade
-            ends — phase 2 is that gap, and it exists rather than being
-            animated. Eased rather than linear: this is the part worth
-            watching.
-          */
-          .to(
-            cells,
-            {
-              attr: {
-                x: (index: number) => finished[index].x,
-                y: (index: number) => finished[index].y,
-                width: (index: number) => finished[index].width,
-                height: (index: number) => finished[index].height,
-                rx: 0,
-                ry: 0,
-              },
-              duration: PIXEL_MORPH_MS / 1000,
-              ease: "power2.inOut",
-              stagger,
-            },
-            (PIXEL_FADE_MS + PIXEL_DOT_HOLD_MS) / 1000,
-          );
-
-        running = timeline;
-      } catch {
-        /* GSAP unavailable. Show the video rather than animating to it. */
-        finish();
-        setRevealDone(true);
-      }
-    };
-
-    void run();
-
-    return () => {
-      cancelled = true;
-      clearTimeout(watchdog);
-      /* kill(), not revert(): reverting would put the cells back to opacity 0
-         and hide a video the visitor is already looking at. */
-      running?.kill();
-      /* Completed rather than removed. `revealDone` may still be false here —
-         a scroll away mid-entrance — so the mask can outlive this effect, and
-         a mask left part-applied would leave holes in the video. */
-      finish();
-    };
-    /* `grid` belongs here: a change remounts the mask on its key, so these
-       cells are gone and the entrance has to be built against the new ones. */
-  }, [canReveal, grid]);
 
   /**
    * Paint the frame currently on screen into the hold canvas.
@@ -1103,6 +766,18 @@ export default function Showreel() {
               grid={grid}
             />
           ) : null}
+
+          {/* The hover cursor. The LAST CHILD of the media box, and it has to
+              be inside it: the circle is `absolute`, so its containing block is
+              the nearest positioned ancestor, and its coordinates are measured
+              from this box's own rect. Placed as a SIBLING of the box those two
+              were different elements, and the circle sat a fixed distance to
+              the left of the pointer.
+
+              After the media wrapper rather than within it — that wrapper
+              carries the entrance's opacity and mask, and the circle has no
+              business inheriting either. */}
+          <HoverCursor areaRef={boxRef} />
         </div>
 
         {/* Everything that matters is real text. It sits on the orange end of
@@ -1218,53 +893,92 @@ export default function Showreel() {
               SHOWREEL.map((entry, entryIndex) => {
                 const real = copy === 1;
                 const active = entryIndex === index;
+                /*
+                  The separators, and the rule that decides which show.
+
+                  A slash belongs to the name AFTER it, so it appears wherever
+                  that name does — which is what keeps the row reading as one
+                  continuous breadcrumb across the copies rather than three
+                  lists laid end to end.
+
+                  Two exceptions, both about not opening with a slash. The very
+                  first item never has one. And from `md` up only the middle
+                  copy is on screen, so the slash before ITS first name would be
+                  leading too — every separator except the middle copy's inner
+                  three is therefore `md:hidden`, which is exactly the set of
+                  buttons that hide there plus that one.
+                */
+                const opensTheRow = copy === 0 && entryIndex === 0;
+                const survivesAtMd = copy === 1 && entryIndex > 0;
                 return (
-                  <button
-                    key={`${copy}-${entry.slug}`}
-                    type="button"
-                    data-copy={copy}
-                    data-entry={entryIndex}
-                    onClick={() => selectProject(entryIndex)}
-                    aria-current={real && active ? "true" : undefined}
-                    aria-hidden={real ? undefined : true}
-                    tabIndex={real ? undefined : -1}
-                    /* Only the real copy is a scroll target, so the centring
-                       effect cannot aim at a decoration. */
-                    data-active={real && active ? "true" : undefined}
-                    /* Cream on orange either way. The active one is filled, so
-                       it reads at a glance and never relies on hue alone; the
-                       rest are outlined and fill on hover. `bg-action-primary`
-                       would be invisible here — it is this section's own
-                       background. */
-                    /*
-                      `font-body font-medium text-label` rather than
-                      `type-label`, which is the same three things plus
-                      `text-transform: uppercase`. The project names are set as
-                      written — Laga, Nourigo, INN News, Bitazza — so the
-                      capitals in INN News mean something instead of being
-                      swallowed by a blanket transform.
+                  <Fragment key={`${copy}-${entry.slug}`}>
+                    {opensTheRow ? null : (
+                      <span
+                        /* Punctuation, not content. Four buttons already
+                           announce themselves; "slash" between them is noise. */
+                        aria-hidden="true"
+                        className={`shrink-0 select-none font-body font-medium text-label text-text-on-accent/50 ${
+                          survivesAtMd ? "" : "md:hidden"
+                        }`}
+                      >
+                        /
+                      </span>
+                    )}
+                    <button
+                      type="button"
+                      data-copy={copy}
+                      data-entry={entryIndex}
+                      onClick={() => selectProject(entryIndex)}
+                      aria-current={real && active ? "true" : undefined}
+                      aria-hidden={real ? undefined : true}
+                      tabIndex={real ? undefined : -1}
+                      /* Only the real copy is a scroll target, so the centring
+                         effect cannot aim at a decoration. */
+                      data-active={real && active ? "true" : undefined}
+                      /*
+                         Cream on orange throughout, separated by opacity alone:
+                         the current project at full strength, the rest at half,
+                         lifting to 70% under the pointer.
 
-                      Composed from primitives rather than `type-label
-                      normal-case`: two utilities setting `text-transform`
-                      would be decided by stylesheet order, not by the order
-                      written here, which is exactly the trap the project rules
-                      warn about. `type-label` itself is left alone — 27 places
-                      use it and they all want the capitals.
+                         The weight does NOT change with state, deliberately.
+                         Bolding the active name would change its width, and the
+                         centring effect measures widths to place it — the row
+                         would shift a few pixels every time the selection moved.
 
-                      `text-label` still carries the token's 0.02em tracking.
-                      That is 0.32px at this size, tuned for caps but harmless
-                      in sentence case.
-                    */
-                    className={`shrink-0 cursor-pointer rounded-pill border-[1.5px] border-solid border-surface-base px-4 py-2 font-body font-medium text-label transition-colors duration-300 ease-standard motion-reduce:transition-none ${
-                      real ? "" : "md:hidden "
-                    }${
-                      active
-                        ? "bg-surface-base text-text-primary"
-                        : "text-text-on-accent hover:bg-surface-base hover:text-text-primary"
-                    }`}
-                  >
-                    {entry.name}
-                  </button>
+                         `py-2` survives the loss of the pill. Nothing shows for
+                         it, but it is what keeps a bare word a 40px-tall tap
+                         target instead of a 16px one.
+                      */
+                      /*
+                        `font-body font-medium text-label` rather than
+                        `type-label`, which is the same three things plus
+                        `text-transform: uppercase`. The project names are set as
+                        written — Laga, Nourigo, INN News, Bitazza — so the
+                        capitals in INN News mean something instead of being
+                        swallowed by a blanket transform.
+
+                        Composed from primitives rather than `type-label
+                        normal-case`: two utilities setting `text-transform`
+                        would be decided by stylesheet order, not by the order
+                        written here, which is exactly the trap the project rules
+                        warn about. `type-label` itself is left alone — 27 places
+                        use it and they all want the capitals.
+
+                        `text-label` still carries the token's 0.02em tracking.
+                        That is 0.32px at this size, tuned for caps but harmless
+                        in sentence case.
+                      */
+                      className={`shrink-0 cursor-pointer py-2 font-body font-medium text-label transition-colors duration-300 ease-standard motion-reduce:transition-none ${
+                        real ? "" : "md:hidden "
+                      }${
+                        active
+                          ? "text-text-on-accent"
+                          : "text-text-on-accent/50 hover:text-text-on-accent/70"
+                      }`}
+                    >
+                      {entry.name}
+                    </button>
+                  </Fragment>
                 );
               }),
             )}

@@ -1,18 +1,18 @@
 import type { Metadata } from "next";
 import { Fragment } from "react";
-import Arrow from "@/app/_components/arrow";
-import Button from "@/app/_components/button";
 import HeroIntro from "@/app/_components/hero-intro";
+import { BrushUnderline, DoubleChevronIcon } from "@/app/_components/icons";
 import MaskedText from "@/app/_components/masked-text";
+import PaperPlaneScroll from "@/app/_components/paper-plane-scroll";
+import SituationCards from "@/app/_components/situation-cards";
 import ScrollGradientText from "@/app/_components/scroll-gradient-text";
 import SectionTitle from "@/app/_components/section-title";
 import ShowcaseLoop from "@/app/_components/showcase-loop";
 import Showreel from "@/app/_components/showreel";
 import TextLink from "@/app/_components/text-link";
 import { featuredInsights } from "@/app/_lib/insights";
-import { contactHref } from "@/app/_lib/navigation";
-import { featuredProjects } from "@/app/_lib/projects";
 import { services } from "@/app/_lib/services";
+import { situations } from "@/app/_lib/situations";
 
 export const metadata: Metadata = {
   title: "Designally — Branding & Design Agency in Bangkok",
@@ -22,33 +22,6 @@ export const metadata: Metadata = {
     canonical: "/",
   },
 };
-
-const situations = [
-  {
-    number: "01",
-    name: "Creation",
-    question: "Starting something new?",
-    description:
-      "Turn the idea into a clear brand that people can understand, trust, and choose.",
-    action: "Build the right foundation",
-  },
-  {
-    number: "02",
-    name: "Growth",
-    question: "Growing, but something is not working?",
-    description:
-      "Find the gap between the business you have built and the way your brand is working for it.",
-    action: "Find what is holding the brand back",
-  },
-  {
-    number: "03",
-    name: "Transformation",
-    question: "Has the business outgrown its brand?",
-    description:
-      "Build a brand that reflects where the business is going next—and make the case for change.",
-    action: "Prepare the brand for change",
-  },
-] as const;
 
 export default function Home() {
   return (
@@ -134,9 +107,12 @@ export default function Home() {
             what paints behind it. `relative` is what lifts it above that
             layer, both being positioned.
 
-            The page's <h1> lives in the intro section below. If the hero gets
-            its own heading, move or demote that one so the page still has
-            exactly one. */}
+            THE PAGE HAS NO <h1>. The intro section that carried it was
+            removed on 9 September 2026 along with the selected-work section,
+            and nothing was promoted in its place. The statement here is a <p>,
+            and the section titles below are <h2>s under a heading that no
+            longer exists. Whatever replaces these sections should take the
+            <h1> — or one of the existing headings should be promoted. */}
           <section
             id="hero"
             className="relative flex min-h-svh w-full items-center justify-center pt-20 pb-25 sm:pb-0"
@@ -162,7 +138,16 @@ export default function Home() {
             together and leave as one picture.
 
             No background, so the gradient shows through it. */}
-          <section className="relative flex min-h-svh w-full items-center justify-center">
+          {/* `isolate` is for the paper plane below: it confines the plane's
+              z-index to this section, so a layer meant to sit over the
+              statement cannot also sit over the header. */}
+          <section className="relative isolate flex min-h-svh w-full items-center justify-center">
+            {/* The paper plane, flying across this section as it scrolls past.
+                Decorative and scroll-linked; it adds no height, taking its box
+                from the section around it. It passes OVER the statement —
+                `PLANE_LAYER` in paper-plane-scroll.tsx is the side it flies on. */}
+            <PaperPlaneScroll />
+
             {/* Edit the words here — one array entry per line. The reveal's
                 timing lives in masked-text.tsx and its easing in tokens.css.
 
@@ -183,10 +168,31 @@ export default function Home() {
               <MaskedText
                 lines={[
                   <Fragment key="creative">
-                    More Than Cre<i>a</i>tive.
+                    More Than{" "}
+                    {/* `relative` so the stroke can be placed against this word
+                        alone; `inline-block` so it keeps a box to measure. The
+                        full stop stays outside — the underline is under the
+                        word, not the punctuation. */}
+                    <span className="relative inline-block">
+                      Cre<i>a</i>tive
+                      {/*
+                        NUDGE THE UNDERLINE HERE. `top-[0.85em]` sits it just
+                        below the baseline of a `line-height: 1` line, and it
+                        overlaps the letters' feet a little on purpose — a brush
+                        stroke that clears the type entirely reads as a border.
+
+                        There is a ceiling on how far down it can go. The mask
+                        in masked-text.tsx clips at `py-[0.25em]`, and this
+                        stroke is about 0.17em tall at this word's width, so
+                        past roughly `top-[1.05em]` its tail starts being cut
+                        off rather than drawn.
+                      */}
+                      <BrushUnderline className="absolute inset-x-0 top-[0.95em] w-full" />
+                    </span>
+                    .
                   </Fragment>,
                   <Fragment key="matters">
-                    We Build What M<i>a</i>tters.
+                    We Build What <span className="font-accent">Matters.</span>
                   </Fragment>,
                 ]}
                 className="type-display text-text-on-accent text-center"
@@ -214,13 +220,62 @@ export default function Home() {
 
           If the hero gradient's end stop changes, this has to change with it.
 
-          PLACEHOLDER: real content goes here, and whatever replaces it has to
-          keep this background. */}
+          The situations block lives here now. It keeps the background, as the
+          note above requires — which is why every colour in it is an on-accent
+          one: this is brand orange, not the page's own surface. */}
       <section
+        id="situations"
         data-header-tone="light"
-        className="relative flex min-h-svh w-full items-center justify-center bg-primary-300"
+        className="relative w-full scroll-mt-8 bg-primary-300"
       >
-        <p className="type-display-sm text-text-on-accent">next section</p>
+        <div className="mx-auto w-full max-w-page px-gutter-mobile py-section-mobile md:px-gutter-tablet md:py-section-tablet xl:px-gutter-desktop xl:py-section-desktop">
+          {/* Both halves of the heading are revealed by MaskedText, which
+              re-arms only from below — see masked-text.tsx. The second is an
+              `h2` rather than the component's default paragraph: this is the
+              section's heading and has to stay one. */}
+          {/* gap-6 / lg:gap-8, the same as the Case Study title and the "how
+              we think" section below. At `lg` the gap is also the width of the
+              gutter between the title and the content, so a section using a
+              different one sits on a visibly different grid. */}
+          <div className="grid gap-6 lg:grid-cols-12 lg:gap-8">
+            {/* The Case Study treatment — the "))" mark beside a large Poppins
+                line — reproduced here rather than reusing SectionTitle, because
+                that component brings its own page container and this heading
+                already sits inside one.
+
+                The mark takes `tone="current"` so it inherits the white above
+                it: its brand oranges would disappear into this section's
+                background. Sized in `em` so it tracks the type, exactly as it
+                does in section-title.tsx.
+
+                It sits OUTSIDE the MaskedText, so it is present while the words
+                rise out of the mask rather than rising with them. Moving it
+                inside the `lines` array would mask it too. */}
+            <div className="flex gap-[0.4em] font-sans text-accent-xl font-medium text-text-on-accent lg:col-start-1 lg:col-end-5">
+              <DoubleChevronIcon
+                tone="current"
+                className="h-[1em] w-auto shrink-0"
+              />
+              <MaskedText lines={["Where are you now?"]} />
+            </div>
+            <MaskedText
+              as="h2"
+              lines={["Every important moment needs the right foundation."]}
+              /* `col-start` and `col-end` rather than a span: `col-span-6`
+                 compiles to the SHORTHAND `grid-column: span 6 / span 6`, which
+                 rewrites both ends of the placement — so it wipes out any
+                 `col-end-*` sitting beside it, whichever order they are written
+                 in. Stating both lines leaves nothing to overwrite. */
+              className="max-w-4xl type-display-sm text-text-on-accent text-balance lg:col-start-7 lg:col-end-13"
+            />
+          </div>
+
+          {/* The cards' words live in the `situations` array above, so they are
+              written once and passed down rather than restated in the client
+              component. Its animation constants are at the top of
+              situation-cards.tsx. */}
+          <SituationCards situations={situations} />
+        </div>
       </section>
 
       {/* Where the brand colour hands back to the page.
@@ -265,7 +320,7 @@ export default function Home() {
         <ShowcaseLoop />
         <SectionTitle
           title={
-            <Fragment >
+            <Fragment>
               Case <span className="text-action-primary">Study</span>
             </Fragment>
           }
@@ -275,204 +330,112 @@ export default function Home() {
                 text="We help businesses create, grow, and transform through strategy, identity, rebranding, and digital design. We work alongside the people shaping the business to find the right direction, build a brand system that holds together, and create the experiences it needs next. No design for decoration—just clear thinking and work built to matter."
                 className="text-accent-lg"
               />
-              <TextLink href="/works/" label="View selected work" sweep/>
+              <TextLink href="/works/" label="View selected work" sweep />
             </>
           }
         />
       </section>
 
-      <section
-        id="intro"
-        className="mx-auto grid w-full max-w-page scroll-mt-8 items-center gap-12 px-gutter-mobile py-section-mobile md:px-gutter-tablet md:py-section-tablet lg:grid-cols-12 xl:px-gutter-desktop xl:py-section-desktop"
-      >
-        <div className="lg:col-span-7">
-          <p className="mb-8 type-label text-text-muted">
-            Strategy-led branding & design agency · Bangkok
-          </p>
-          <h1 className="max-w-5xl type-display text-text-primary text-balance">
-            More Than Creative.
-            <span className="block text-action-primary">
-              We Build What Matters.
+      {/* Cream, not brand orange. `data-header-tone="light"` came off with the
+          colour: that marker asks the floating logo to turn white, which is
+          right over orange and wrong over this. */}
+      <section className="bg-surface-base text-text-body">
+        <div className="mx-auto grid w-full max-w-page gap-6 px-gutter-mobile py-section-mobile md:px-gutter-tablet md:py-section-tablet lg:grid-cols-12 lg:gap-8 xl:px-gutter-desktop xl:py-section-desktop">
+          {/* The same treatment as "Where are you now?" — the "))" mark beside
+              a large Poppins line. `tone="brand"` is the default and the right
+              one here: this sits on cream, where the mark's own oranges read,
+              unlike on the orange section above. */}
+          <div className="flex gap-[0.4em] font-sans text-accent-xl font-medium text-text-primary lg:col-start-1 lg:col-end-5">
+            <DoubleChevronIcon className="h-[1em] w-auto shrink-0" />
+            {/* A `span`, not a Fragment. A Fragment renders no element, so its
+                children become direct children of this flex row — "How we" as
+                an anonymous flex item and the coloured span as another — and
+                `gap-[0.4em]` would land BETWEEN the two words as well as after
+                the mark. Inside a real element they are ordinary inline content
+                with an ordinary word space. section-title.tsx carries the same
+                note for the same reason. */}
+            <span>
+              How we <span className="text-action-primary">think</span>
             </span>
-          </h1>
-          <p className="mt-8 max-w-text type-body md:text-[1.25rem] md:leading-normal">
-            Good businesses are not always seen for what they truly are. We help
-            businesses create, grow, and transform through brand strategy,
-            identity, digital experiences, and creative execution.
-          </p>
-          <div className="mt-10 flex flex-wrap gap-4">
-            <Button href={contactHref}>
-              Tell us what&apos;s changing <Arrow />
-            </Button>
-            <Button href="/works/" variant="secondary">
-              View selected work
-            </Button>
           </div>
-        </div>
+          {/* Columns 7-12, matching the statement in the situations section
+              above — the two sections now share one layout: title on the left
+              four, content on the right six, a two-column gutter between.
 
-        <div
-          className="relative min-h-80 overflow-hidden rounded-lg bg-primary-300 p-7 text-white sm:min-h-112 lg:col-span-5"
-          aria-hidden="true"
-        >
-          <div className="absolute -right-16 -top-16 size-56 rounded-full border-40 border-primary-100/80" />
-          <div className="absolute -bottom-24 -left-20 size-72 rounded-full bg-secondary-400" />
-          <div className="relative flex h-full min-h-72 flex-col justify-between sm:min-h-98">
-            <p className="text-sm font-medium tracking-label uppercase">
-              Creation / Growth / Transformation
-            </p>
-            <p className="self-end font-display text-[clamp(7rem,18vw,13rem)] leading-[0.7]">
-              D
-            </p>
-            <p className="max-w-60 text-sm font-medium">
-              Foundation before output. Understanding before answers.
-            </p>
-          </div>
-        </div>
-      </section>
+              Stated as start and end lines, never a span. `col-span-*` compiles
+              to the shorthand `grid-column: span N / span N`, which rewrites
+              both ends of the placement and silently overrides any `col-end-*`
+              beside it, whichever order they are written in. */}
+          <div className="lg:col-start-7 lg:col-end-13">
+            <h2 className="max-w-4xl type-display-sm text-text-primary text-balance">
+              Fou<i>n</i>dation Before{" "}
+              <span className="font-accent">
+                {/* `relative inline-block` so the stroke has this word's box to
+                    span, and the full stop sits outside it — the mark goes
+                    under the word, not the punctuation. */}
+                <span className="relative inline-block">
+                  Output
+                  {/*
+                    `text-action-primary` because the icon fills with
+                    `currentColor`, and this heading is dark ink on cream. The
+                    hero's copy of this mark inherits white instead; the colour
+                    is set per use rather than baked into the icon.
 
-      <section
-        id="situations"
-        className="scroll-mt-8 border-t border-border-default"
-      >
-        <div className="mx-auto w-full max-w-page px-gutter-mobile py-section-mobile md:px-gutter-tablet md:py-section-tablet xl:px-gutter-desktop xl:py-section-desktop">
-          <div className="grid gap-8 lg:grid-cols-12">
-            <p className="type-label text-text-muted lg:col-span-3">
-              01 / Where are you now?
-            </p>
-            <h2 className="max-w-4xl type-display-sm text-text-primary text-balance lg:col-span-9">
-              Every important moment needs the right foundation.
+                    `top-[0.95em]` matches the hero's placement. Unlike there,
+                    nothing here clips: this heading has no mask around it, so
+                    the stroke can be pushed further down if it reads tight
+                    against the Caveat baseline, which sits differently from
+                    Poppins'.
+                  */}
+                  <BrushUnderline className="absolute inset-x-0 top-[0.95em] w-full text-action-primary" />
+                </span>
+                .
+              </span>
             </h2>
-          </div>
+            {/* `text-accent-sm md:text-accent-lg` on both paragraphs: at `md`
+                and up they are 2rem, the size the Case Study note runs at, so
+                the two sections read as one voice. Below that they drop to
+                1.25rem — 2rem is a heading size on a phone, not body copy.
 
-          <div className="mt-16 grid border-t border-border-default lg:grid-cols-3">
-            {situations.map((situation) => (
-              <article
-                key={situation.name}
-                className="group flex min-h-96 flex-col border-b border-border-default py-8 lg:border-r lg:px-8 lg:first:pl-0 lg:last:border-r-0 lg:last:pr-0"
-              >
-                <div className="flex items-center justify-between type-small text-text-muted">
-                  <span>{situation.number}</span>
-                  <span>{situation.name}</span>
-                </div>
-                <h3 className="mt-14 max-w-sm type-h1-alt text-text-primary">
-                  {situation.question}
-                </h3>
-                <p className="mt-6 max-w-sm type-body text-text-body">
-                  {situation.description}
-                </p>
-                <TextLink
-                  href="/services/"
-                  label={situation.action}
-                  className="mt-auto w-full justify-between pt-10"
-                />
-              </article>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section
-        id="work"
-        data-header-tone="light"
-        className="scroll-mt-8 bg-surface-inverse text-white"
-      >
-        <div className="mx-auto w-full max-w-page px-gutter-mobile py-section-mobile md:px-gutter-tablet md:py-section-tablet xl:px-gutter-desktop xl:py-section-desktop">
-          <div className="grid gap-8 lg:grid-cols-12">
-            <p className="type-label text-secondary-200 lg:col-span-3">
-              02 / Selected work
-            </p>
-            <div className="lg:col-span-9">
-              <h2 className="max-w-4xl type-display-sm text-white text-balance">
-                Built for the moment the business was in.
-              </h2>
-              <p className="mt-6 max-w-text type-body-lg text-neutral-150">
-                Different businesses need different kinds of change. The work
-                begins by understanding what matters now—and what needs to last.
-              </p>
-            </div>
-          </div>
-
-          <div className="mt-16 grid gap-x-6 gap-y-14 md:grid-cols-2">
-            {featuredProjects.map((project, index) => (
-              <article
-                key={project.name}
-                className={index % 2 === 1 ? "md:mt-20" : ""}
-              >
-                <div
-                  className={`flex aspect-work items-center justify-center overflow-hidden rounded-md ${project.background} ${project.foreground}`}
-                >
-                  <span
-                    className="font-display text-[clamp(6rem,18vw,15rem)] leading-none"
-                    aria-hidden="true"
-                  >
-                    {project.mark}
-                  </span>
-                </div>
-                <div className="mt-5 flex items-start justify-between gap-6 border-t border-neutral-700 pt-4">
-                  <div>
-                    <h3 className="type-h2 text-white">{project.name}</h3>
-                    <p className="mt-2 type-small text-neutral-300">
-                      {project.services}
-                    </p>
-                  </div>
-                  <span className="shrink-0 text-xs tracking-label text-secondary-200 uppercase">
-                    {project.stage}
-                  </span>
-                </div>
-              </article>
-            ))}
-          </div>
-
-          <div className="mt-16 flex flex-wrap items-center justify-between gap-6">
-            <p className="max-w-text type-small text-neutral-300">
-              Case studies are draft candidates. Final stories and images will
-              be added after evidence and client permission are checked.
-            </p>
-            <TextLink href="/works/" label="View all work" tone="inverse" />
-          </div>
-        </div>
-      </section>
-
-      <section data-header-tone="light" className="bg-primary-300 text-white">
-        <div className="mx-auto grid w-full max-w-page gap-14 px-gutter-mobile py-section-mobile md:px-gutter-tablet md:py-section-tablet lg:grid-cols-12 xl:px-gutter-desktop xl:py-section-desktop">
-          <p className="type-label lg:col-span-3">03 / How we think</p>
-          <div className="lg:col-span-9">
-            <h2 className="max-w-4xl type-display-sm text-white text-balance">
-              Foundation Before Output.
-            </h2>
-            <div className="mt-12 grid gap-10 border-t border-white/40 pt-8 md:grid-cols-2">
-              <p className="max-w-lg type-body-lg">
+                The pair is a size only. The accent family is Caveat, but a bare
+                `text-*` utility carries the measurement and nothing else, which
+                is how section-title.tsx uses `text-accent-xl` too. */}
+            <div className="mt-12 grid gap-10 border-t border-border-default pt-8 md:grid-cols-2">
+              <p className="max-w-lg text-accent-sm">
                 A logo before a direction. A website before a clear story. The
                 visible problem often starts somewhere earlier.
               </p>
-              <div>
-                <p className="max-w-lg type-body-lg">
-                  We begin by understanding the business, the people behind it,
-                  and what really needs to change. Then strategy and creative
-                  work can move in the same direction.
-                </p>
-                <ol className="mt-10 space-y-4 border-t border-white/40 pt-6 text-sm font-medium">
-                  <li className="flex justify-between">
-                    <span>Understand what matters.</span>
-                    <span>01</span>
-                  </li>
-                  <li className="flex justify-between">
-                    <span>Make the direction clear.</span>
-                    <span>02</span>
-                  </li>
-                  <li className="flex justify-between">
-                    <span>Build what can grow.</span>
-                    <span>03</span>
-                  </li>
-                </ol>
-                <TextLink
-                  href="/about/"
-                  label="See how we work"
-                  tone="inverse"
-                  className="mt-10 underline underline-offset-4"
-                />
-              </div>
+              <p className="max-w-lg text-accent-sm">
+                We begin by understanding the business, the people behind it,
+                and what really needs to change. Then strategy and creative work
+                can move in the same direction.
+              </p>
             </div>
+
+            {/* The steps, lifted OUT of the two-column row above so they run
+                the full six columns of this block rather than half of them.
+                They are a sequence, and a sequence reads better across a wide
+                measure than stacked in a narrow one. */}
+            <ol className="mt-12 space-y-4 border-t border-border-default pt-6 type-body-lg font-medium md:text-accent-lg">
+              <li className="flex justify-between">
+                <span>Understand what matters.</span>
+                <span>01</span>
+              </li>
+              <li className="flex justify-between">
+                <span>Make the direction clear.</span>
+                <span>02</span>
+              </li>
+              <li className="flex justify-between">
+                <span>Build what can grow.</span>
+                <span>03</span>
+              </li>
+            </ol>
+            <TextLink
+              href="/about/"
+              label="See how we work"
+              size="md"
+              className="mt-10 underline underline-offset-4"
+            />
           </div>
         </div>
       </section>

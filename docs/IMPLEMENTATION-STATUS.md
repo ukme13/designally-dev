@@ -1,6 +1,6 @@
 # Implementation Status
 
-Updated: 8 September 2026
+Updated: 9 September 2026
 
 A snapshot of what exists in the codebase, what is placeholder, and what has
 not been started. Read alongside `docs/updates/` for the record of how each
@@ -139,6 +139,34 @@ content beside it. The mark is sized in `em` so it tracks the heading through
 its whole clamp rather than needing a breakpoint. Ported from
 `designally-clone`, not from a screenshot.
 
+### Homepage situations section
+
+Replaced the "next section" placeholder. A heading, a statement beside it, and
+three 4:5 cards that rise, turn face-up and then fill in with their copy. Each
+card is a single link to `/services/`, its whole area made clickable by an
+overlay on the existing link rather than a second one.
+
+Card artwork is real, in `public/situations/`. Which face carries it is
+load-bearing — see `docs/updates/2026-09-09.md`.
+
+### Homepage paper plane
+
+A plane flying a fixed path across the statement section, scrubbed to scroll
+position. Path and plane share one SVG coordinate system, which is what keeps
+them aligned at every size without recalculation.
+
+### Hover cursor
+
+The pointer becomes a circle with an arrow over the showreel, the work showcase
+and each situation card. Fine pointers only, by media query rather than device
+sniffing; reduced motion keeps the cursor and drops the lag.
+
+### Hero gradient settle
+
+The hero's gradient dissolves into the solid orange beneath it as the sticky
+stage scrolls, finishing exactly as the pin releases — so it hands over to the
+section below with no step in colour.
+
 ### Adaptive header logo tone
 
 The floating header's monogram turns white over sections that carry
@@ -218,13 +246,13 @@ remain on the brief's "evidence needed before launch" list.
   screen at first paint now, so `preload` no longer stays `"none"` — LAGA
   (1,063,184 B) is part of the initial media cost for every visitor, where
   before only those who scrolled paid it. Not measured, no decision taken.
-- One placeholder section after the sticky stage, carrying the literal text
-  "next section". It exists to hold the colour handover and **must be replaced
-  before launch**; whatever replaces it has to keep its background. The section
-  that followed it now holds the work showcase and its title.
-- **The showcase copy is unreviewed.** The paragraph beside "Case Study" and
-  the "View selected work" link were supplied in a message, not taken from an
-  approved source.
+- **No placeholder sections remain on the homepage.** The last one is now the
+  situations section.
+- **Unreviewed copy in three places.** The paragraph beside "Case Study", the
+  situations cards, and the "how we think" body were all written into the page
+  rather than taken from an approved source.
+- The Services and Insights sections still use the older `col-span-3` / `9`
+  layout rather than the 1-4 / 7-12 grid the other three share.
 - **The showcase row has no pause control.** It moves whenever the page is not
   still, which is a WCAG 2.2.2 question for moving content. Reduced motion
   stops it entirely, but that is a different audience.
@@ -253,15 +281,22 @@ versus horizontal split on a phone needs a real finger. The logo-tone marker
 covering the top third of the fading band is a judgement about where that
 gradient stops carrying white.
 
+Everything added on 9 September was tuned by argument rather than by eye, and
+several of the numbers are first guesses: the cards' `CARD_DURATION` and
+`CARD_ENTRY_*`, the plane's `PLANE_SCALE` and `FLIGHT_REACH`, and the hover
+cursor's follow lag. The paper plane in particular has never been watched — its
+path is letterboxed inside a layer three screens tall, and whether the band
+lands where it should is a visual question.
+
 ## Next recommended task
 
-**Replace the last homepage placeholder.**
+**Get the homepage copy reviewed.**
 
-The sticky stage hands over to a section reading "next section". It is the only
-invented content left on the homepage and the only thing there that could not
-ship. The colour contract it carries is documented in `ADR-003`, and whatever
-replaces it needs `data-header-tone="light"` to keep the logo readable — see
-`ADR-004`.
+There are no placeholders left, which means the homepage now reads as finished
+and is not. The situations cards, the Case Study paragraph and the "how we
+think" body were written into the page during implementation. None of it states
+a client fact, so nothing is unsafe — but none of it has been approved either,
+and it is the last thing standing between this page and a real review.
 
 After that, **organisation structured data plus an `og:image`.**
 
