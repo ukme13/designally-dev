@@ -13,6 +13,7 @@ import { useEffect } from "react";
  *
  * ── The knobs ────────────────────────────────────────────────────────────
  *   when it flies   SCROLL_START and SCROLL_END
+ *   how far it flies PATH_START and PATH_END
  *   nose direction  PLANE_ROTATION_OFFSET
  * ─────────────────────────────────────────────────────────────────────────
  *
@@ -45,13 +46,38 @@ import { useEffect } from "react";
  *   FLIGHT_REACH               WHERE the plane flies
  *   SCROLL_START / SCROLL_END  WHEN it flies
  *
- * The defaults span the section's whole passage: the plane sets off as the
- * section's top reaches the bottom of the screen, and arrives as its bottom
- * leaves the top. To hold it still until the section is properly in view, try
- * "top center"; to have it finish before the section leaves, "bottom center".
+ * The plane sets off as the section's top reaches the middle of the screen and
+ * arrives as its bottom does — so the range is the section's own height, one
+ * screen for a `min-h-svh` section, and the whole flight happens while the
+ * plane is fully in view.
+ *
+ * **That is a deliberate choice over a slower plane.** Widening this to
+ * "top bottom" / "bottom top" doubles the range and halves the speed, and was
+ * tried; it also means a good part of the flight happens while the layer is
+ * only partly on screen, and the plane read better fast and fully visible than
+ * slow and half cropped. Reverted on 10 September 2026.
+ *
+ * If it ever needs to be slower AND stay visible, the honest answer is a taller
+ * section or a pinned one — not a wider range. Note that a taller section would
+ * lengthen the sticky stage this one sits in and re-time the hero gradient with
+ * it, so that is two things to tune, not one.
  */
 const SCROLL_START = "top center";
 const SCROLL_END = "bottom center";
+/**
+ * How much of the route the plane actually flies, as a fraction.
+ *
+ * The whole path. It was briefly 0.7 as a way of slowing the plane down — less
+ * route over the same scroll is slower, and it costs no layout — but it left the
+ * tail of the big loop unflown, which on this route is most of what makes it
+ * worth having.
+ *
+ * Kept as constants rather than inline `0` and `1` because MotionPath needs both
+ * values anyway, and naming them records that this lever was considered.
+ */
+const PATH_START = 0;
+const PATH_END = 1;
+
 /**
  * Degrees added to the tangent rotation, to correct the artwork's own heading.
  *
@@ -122,8 +148,8 @@ export function usePaperPlaneFlight({
           align: path,
           alignOrigin: [0.5, 0.5] as [number, number],
           autoRotate: PLANE_ROTATION_OFFSET,
-          start: 0,
-          end: 1,
+          start: PATH_START,
+          end: PATH_END,
         },
         /* No easing. The scrollbar is the easing — anything else would make
            the plane speed up and slow down against a steady scroll. */

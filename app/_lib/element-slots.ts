@@ -1,3 +1,5 @@
+import type { RefObject } from "react";
+
 /**
  * A list of elements filled by callback refs, one slot per item rendered.
  *
@@ -8,6 +10,24 @@
  * bug.
  */
 export type ElementSlots<T extends Element> = (T | null)[];
+
+/**
+ * A callback ref that fills one slot.
+ *
+ * `ref={slot(rowRefs, index)}` rather than the arrow it replaces, which had to
+ * be written as a block — `(node) => { refs.current[i] = node; }` — because an
+ * assignment expression returns a value and React rejects a ref callback that
+ * returns anything but a cleanup function. Easy to get wrong, and four lines of
+ * noise in the middle of the markup every time.
+ *
+ * A new function each render, exactly as the inline arrow was, so React still
+ * clears the slot and refills it on every commit.
+ */
+export const slot =
+  <T extends Element>(slots: RefObject<ElementSlots<T>>, index: number) =>
+  (node: T | null) => {
+    slots.current[index] = node;
+  };
 
 /** The slots that currently hold an element. */
 export const present = <T extends Element>(nodes: ElementSlots<T>): T[] =>

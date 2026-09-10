@@ -167,11 +167,47 @@ The hero's gradient dissolves into the solid orange beneath it as the sticky
 stage scrolls, finishing exactly as the pin releases — so it hands over to the
 section below with no step in colour.
 
+### Homepage services list
+
+Complete. `app/_components/service-rows.tsx` with `app/_lib/use-service-rows.ts`.
+
+- The five services, unchanged in name, order and numbering, as full-bleed rows
+  whose rules cross the whole screen while the words stay on the page grid.
+- A ~30-word `summary` per service in `app/_lib/services.ts` (31 / 30 / 33 / 33 /
+  28), reviewed against `docs/content/BRAND-VOICE.md` and
+  `docs/content/SEO-AEO-GEO.md`.
+- Rows stack against the top of the screen and the finished stack leaves as one
+  piece. Transformed, not `position: sticky` — see ADR-006 for why sticky cannot
+  do the second half of that.
+- A reserved `aspect-portrait` media rectangle per row, top-aligned with the
+  title so a strip of it survives the stack. **Empty: no artwork exists yet.**
+- The "we should have a convo!" sticker on row 04, from designally.co's own
+  online brand guide.
+
+### Section CTA band
+
+Complete. `app/_components/cta-row.tsx`.
+
+- 160px full-bleed band, the whole of which is the link, closing "What we build".
+- Black wipes across on hover and on keyboard focus, `--ease-sweep` at 700ms,
+  matching the header nav and `text-link.tsx`.
+- One label, not two: white reads on both the orange it stands on and the black
+  that crosses it. A tone whose fill needs the ink to flip cannot use this
+  structure — the file says why.
+
 ### Adaptive header logo tone
 
 The floating header's monogram turns white over sections that carry
 `data-header-tone="light"`, and back to orange elsewhere. Nothing samples
 pixels; sections declare their own background. See `ADR-004`.
+
+- The footer now carries a marker below its cream wave: it is the same brand
+  orange as the marked sections, so the monogram was disappearing into it.
+- **Known gap.** Both pixel wipes hide the logo for the last moment of the
+  transition — the cover reaches the top of the screen before the destination
+  section does, giving orange-on-orange entering `#services` and white-on-white
+  entering "05 / Proof". ADR-004 has only a marker that ADDS white; expressing
+  "force orange here" is an amendment to that decision, not a tweak.
 
 ### Footer
 
@@ -250,9 +286,17 @@ remain on the brief's "evidence needed before launch" list.
   situations section.
 - **Unreviewed copy in three places.** The paragraph beside "Case Study", the
   situations cards, and the "how we think" body were all written into the page
-  rather than taken from an approved source.
-- The Services and Insights sections still use the older `col-span-3` / `9`
-  layout rather than the 1-4 / 7-12 grid the other three share.
+  rather than taken from an approved source. The five service descriptions are
+  no longer among them — they were reviewed against both content guides on
+  10 September 2026.
+- The Insights section still uses the older `col-span-3` / `9` layout rather
+  than the 1-4 / 7-12 grid the other four share. Services now shares it.
+- **The five service media rectangles are empty**, and so is the space they
+  hold. Ratio and surface are placeholders; `MEDIA` in `service-rows.tsx` is
+  the one place to change both. When artwork lands, recheck the sticker's
+  contrast over it.
+- **The floating logo disappears for a moment at both pixel wipes.** See the
+  known gap under Adaptive header logo tone.
 - **The showcase row has no pause control.** It moves whenever the page is not
   still, which is a WCAG 2.2.2 question for moving content. Reduced motion
   stops it entirely, but that is a different audience.
@@ -290,13 +334,18 @@ lands where it should is a visual question.
 
 ## Next recommended task
 
-**Get the homepage copy reviewed.**
+**Get the rest of the homepage copy reviewed.**
 
 There are no placeholders left, which means the homepage now reads as finished
 and is not. The situations cards, the Case Study paragraph and the "how we
 think" body were written into the page during implementation. None of it states
 a client fact, so nothing is unsafe — but none of it has been approved either,
 and it is the last thing standing between this page and a real review.
+
+`docs/content/BRAND-VOICE.md` and `docs/content/SEO-AEO-GEO.md` now exist, so
+this is a review against a written standard rather than a matter of taste. The
+five service descriptions have already been through it; the pattern to follow is
+in the 10 September update.
 
 After that, **organisation structured data plus an `og:image`.**
 

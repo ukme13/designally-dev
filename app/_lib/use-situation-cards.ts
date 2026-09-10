@@ -88,12 +88,28 @@ const CARD_ENTRY_SCALE = 0.82;
 const CARD_DURATION = 1.1;
 /** The gap between card 01 setting off and card 02, in seconds. */
 const CARD_STAGGER = 0.18;
-/** The pause after the cards land before their copy begins, in seconds. */
-const CONTENT_DELAY = 0.12;
+/**
+ * When a card's copy begins, relative to that card LANDING, in seconds.
+ *
+ * Negative on purpose: the copy starts while the card is still settling, so the
+ * two read as one arrival rather than a card and then a caption. A positive
+ * value here is a pause, and a pause after a 1.1s turn is a long time to look
+ * at a picture with nothing beside it.
+ *
+ * Relative to the card's own landing, not the timeline's end — see the note on
+ * the tween below.
+ */
+const CONTENT_DELAY = -0.15;
 /** How long a card's copy takes to arrive, in seconds. */
-const CONTENT_DURATION = 0.5;
-/** Where the section has to reach before any of it runs. */
-const SCROLL_START = "top 75%";
+const CONTENT_DURATION = 0.4;
+/**
+ * Where the section has to reach before any of it runs.
+ *
+ * "top 85%" rather than "top 75%": the whole sequence takes about a second and
+ * a half, so it has to begin while the section is still on its way up. Firing
+ * later means arriving at cards that are still mid-animation.
+ */
+const SCROLL_START = "top 85%";
 /**
  * Easings, both taken from the design tokens rather than written here. See
  * app/_lib/css-ease.ts for why they are read from the document.
@@ -272,8 +288,19 @@ export function useSituationCards({
         0,
       );
 
-      /* After the cards land, not alongside them. `+=` on the position
-         parameter is measured from the end of the timeline so far. */
+      /*
+        Positioned at an ABSOLUTE time, and that is the whole difference.
+
+        `+=` measures from the end of the timeline SO FAR — which, once the
+        cards carry a stagger, is when the LAST card lands. So card 01's copy
+        sat waiting for card 03, and the section read as a long pause before
+        anything said what it was.
+
+        `CARD_DURATION + CONTENT_DELAY` starts this tween as the FIRST card
+        lands, and giving it the cards' own stagger means every card's copy
+        follows its own card by exactly CONTENT_DELAY. Each column fills in as
+        it arrives rather than all three waiting for the slowest.
+      */
       timeline.to(
         copies,
         {
@@ -283,7 +310,7 @@ export function useSituationCards({
           stagger: CARD_STAGGER,
           ease: copyEase,
         },
-        `+=${CONTENT_DELAY}`,
+        CARD_DURATION + CONTENT_DELAY,
       );
 
       /*

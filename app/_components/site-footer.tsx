@@ -23,6 +23,27 @@ const DUCK_SRC = "/designally-duck.svg";
 export default function SiteFooter() {
   return (
     <footer className="relative w-full bg-action-primary text-white">
+      {/* Asks for a white logo, but only BELOW the wave.
+
+          The footer is the same brand orange as the marked sections, so the
+          floating header's orange monogram disappears into it. Marking the
+          `<footer>` itself would be wrong in the other direction: the top
+          strip is the cream wave, and a white logo would vanish into that
+          instead. So the marker is a rectangle starting where the wave ends.
+
+          The wave is a curve and this is a rectangle, which is the deliberate
+          limit of the whole approach — see the note on not sampling pixels in
+          use-header-logo-tone.ts. Erring below the wave is the safe side of
+          it: an orange logo on cream reads, a white one does not.
+
+          Paints nothing and takes no space. Same technique as the marker on
+          the showcase stage in page.tsx. */}
+      <span
+        aria-hidden="true"
+        data-header-tone="light"
+        className="pointer-events-none absolute inset-x-0 bottom-0 top-20 md:top-section-tablet lg:top-40"
+      />
+
       {/* Top wave. Rotated so the white edge curves down into the block. */}
       <div
         aria-hidden="true"

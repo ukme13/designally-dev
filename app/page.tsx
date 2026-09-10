@@ -1,12 +1,17 @@
 import type { Metadata } from "next";
 import { Fragment } from "react";
+import GradientWash from "@/app/_components/gradient-wash";
 import HeroIntro from "@/app/_components/hero-intro";
 import { BrushUnderline, DoubleChevronIcon } from "@/app/_components/icons";
 import MaskedText from "@/app/_components/masked-text";
 import PaperPlaneScroll from "@/app/_components/paper-plane-scroll";
+import PixelWipe from "@/app/_components/pixel-wipe";
 import SituationCards from "@/app/_components/situation-cards";
+import SofaFrames from "@/app/_components/sofa-frames";
 import ScrollGradientText from "@/app/_components/scroll-gradient-text";
+import CtaRow from "@/app/_components/cta-row";
 import SectionTitle from "@/app/_components/section-title";
+import ServiceRows from "@/app/_components/service-rows";
 import ShowcaseLoop from "@/app/_components/showcase-loop";
 import Showreel from "@/app/_components/showreel";
 import TextLink from "@/app/_components/text-link";
@@ -301,21 +306,50 @@ export default function Home() {
           The title is placed AFTER the row on purpose — it reads as a caption
           to the work rather than a lid on it. Swapping the two lines below is
           all it takes to put it back on top. */}
-      <section className="relative flex min-h-svh w-full flex-col items-center justify-center gap-10 bg-linear-to-b from-primary-300 to-surface-base md:gap-14">
-        {/* Only the TOP of this section is orange — it fades to the page
-            background by the bottom — so the marker covers a third of it
-            rather than the whole thing. Marking the section would leave the
-            logo white over the pale end of the fade; marking nothing would
-            leave it orange over the brand-orange start, which is the problem
-            this whole system exists to fix.
+      <section
+        data-gradient-wash
+        /* Solid cream underneath, with the orange gradient painted over it by
+           GradientWash and dissolved as the section passes — so this ends up
+           entirely cream by the time its bottom reaches the fold.
 
-            A third is a judgement about where the fade stops being dark enough
-            to carry white; move it if it reads wrong. The element paints
-            nothing and takes no space. */}
+           `isolate` is what keeps that layer above this background instead of
+           dropping behind it. The gradient itself moved off this element for
+           the same reason it exists: a background cannot be faded independently
+           of the box that carries it.
+
+           The padding is spacing, and now only spacing. The fade needs this
+           section to be taller than the screen — it holds at full until the top
+           edge has cleared, because that edge has to keep matching the solid
+           orange above it while both are visible — but HOW LONG it takes is
+           `FADE_TRAVEL` in gradient-wash.tsx, not this. Change the room at the
+           top freely; the wash is not listening.
+
+           `pt-*` and `pb-*` rather than `py-*` with a `pt-*` beside it. Both
+           set padding-top, and between two utilities on one property it is
+           stylesheet order that decides, never the order they are written. */
+        className="relative isolate flex min-h-svh w-full flex-col items-center justify-center gap-10 bg-surface-base pt-32 pb-section-mobile md:gap-14 md:pt-48 md:pb-section-tablet xl:pt-96 xl:pb-section-desktop"
+      >
+        <GradientWash className="bg-linear-to-b from-primary-300 to-surface-base" />
+        {/* The white-logo marker, sized to the FADE and not to the section.
+
+            This section is only orange for as long as the wash takes to clear —
+            `FADE_TRAVEL` in gradient-wash.tsx, currently 0.12 of a screen. A
+            marker covering a third of the section left the logo white long
+            after the background had gone cream, which is the wrong way round
+            and the more visible mistake of the two.
+
+            15svh rather than 12: the header has height of its own, so it is
+            still overlapping this band for a moment after the section's top
+            passes it. A little margin costs nothing; being short leaves the
+            logo orange on orange.
+
+            KEEP THESE IN STEP. If `FADE_TRAVEL` changes, this changes with it —
+            they describe the same moment from two different files. The element
+            paints nothing and takes no space. */}
         <span
           aria-hidden="true"
           data-header-tone="light"
-          className="pointer-events-none absolute inset-x-0 top-0 h-1/3"
+          className="pointer-events-none absolute inset-x-0 top-0 h-[15svh]"
         />
         <ShowcaseLoop />
         <SectionTitle
@@ -330,7 +364,12 @@ export default function Home() {
                 text="We help businesses create, grow, and transform through strategy, identity, rebranding, and digital design. We work alongside the people shaping the business to find the right direction, build a brand system that holds together, and create the experiences it needs next. No design for decoration—just clear thinking and work built to matter."
                 className="text-accent-lg"
               />
-              <TextLink href="/works/" label="View selected work" sweep />
+              <TextLink
+                href="/works/"
+                label="View selected work"
+                size="md"
+                sweep
+              />
             </>
           }
         />
@@ -340,7 +379,7 @@ export default function Home() {
           colour: that marker asks the floating logo to turn white, which is
           right over orange and wrong over this. */}
       <section className="bg-surface-base text-text-body">
-        <div className="mx-auto grid w-full max-w-page gap-6 px-gutter-mobile py-section-mobile md:px-gutter-tablet md:py-section-tablet lg:grid-cols-12 lg:gap-8 xl:px-gutter-desktop xl:py-section-desktop">
+        <div className="mx-auto grid w-full max-w-page gap-6 px-gutter-mobile py-section-mobile md:px-gutter-tablet md:py-section-tablet lg:grid-cols-12 lg:gap-8 xl:px-gutter-desktop xl:pt-section-desktop xl:pb-120">
           {/* The same treatment as "Where are you now?" — the "))" mark beside
               a large Poppins line. `tone="brand"` is the default and the right
               one here: this sits on cream, where the mark's own oranges read,
@@ -367,7 +406,13 @@ export default function Home() {
               both ends of the placement and silently overrides any `col-end-*`
               beside it, whichever order they are written in. */}
           <div className="lg:col-start-7 lg:col-end-13">
-            <h2 className="max-w-4xl type-display-sm text-text-primary text-balance">
+            {/* Two frames of one drawing: the sofa, then the sofa with its lamp
+                on. It turns once this section's top has passed the middle of
+                the screen, and turns back below it. The component finds this
+                `<section>` by walking up from itself, so it has to stay inside
+                it. See sofa-frames.tsx. */}
+            <SofaFrames />
+            <h2 className="mt-8 max-w-4xl type-display-sm text-text-primary text-balance">
               Fou<i>n</i>dation Before{" "}
               <span className="font-accent">
                 {/* `relative inline-block` so the stroke has this word's box to
@@ -434,57 +479,121 @@ export default function Home() {
               href="/about/"
               label="See how we work"
               size="md"
-              className="mt-10 underline underline-offset-4"
+              /* `sweep` rather than a static `underline`: the rule is drawn by
+                 an `::after` held at `scale-x-0` and released on hover, so it
+                 wipes across the way the header's nav links do. A permanent
+                 underline alongside it would be a second, motionless line under
+                 the same words. */
+              sweep
+              className="mt-10"
             />
           </div>
         </div>
       </section>
 
-      <section id="services" className="scroll-mt-8">
-        <div className="mx-auto w-full max-w-page px-gutter-mobile py-section-mobile md:px-gutter-tablet md:py-section-tablet xl:px-gutter-desktop xl:py-section-desktop">
-          <div className="grid gap-8 lg:grid-cols-12">
-            <p className="type-label text-text-muted lg:col-span-3">
-              04 / What we build
-            </p>
-            <h2 className="max-w-4xl type-display-sm text-text-primary text-balance lg:col-span-9">
-              The right work starts with the right question.
-            </h2>
+      {/* "What we build".
+
+          `relative isolate` is for the wipe below: it gives that layer a
+          positioning parent and confines its z-index to this section, so a
+          transition meant to cover this content cannot also cover the header.
+
+          Brand orange, and the wipe below is the same orange — so the pixels
+          rising away reveal the colour they were already painted in, and the
+          section arrives rather than being uncovered. That is also why the wipe
+          reaches UP past this section's top: over orange it would be invisible,
+          and the cream section above is the only place it can be seen.
+
+          Every ink in here is an on-accent one for the same reason the
+          situations section's are. It adds no height: the wipe is an absolute
+          layer, so nothing below it moves. */}
+      <section
+        id="services"
+        data-header-tone="light"
+        className="relative isolate scroll-mt-8 bg-primary-300"
+      >
+        {/* `surface` matches this section's own background on purpose — the
+            finished cover is then indistinguishable from the section arriving.
+            See pixel-wipe.tsx. */}
+        <PixelWipe surface="bg-primary-300" />
+        {/* The vertical rhythm lives out here and the horizontal gutters on
+            the blocks inside it, so the service list can run edge to edge
+            between two blocks that stay on the page grid. A full-bleed child
+            of a padded parent would need negative margins that come undone at
+            every breakpoint. See service-rows.tsx.
+
+            Top padding only: the CTA band is the last thing in the section and
+            closes it, so the usual bottom padding would leave a strip of
+            orange under a band that is meant to run into the next section.
+            div className="pt-section-mobile md:pt-section-tablet xl:pt-section-desktop">*/}
+        <div className="pt-6">
+          <div className="mx-auto w-full max-w-page px-gutter-mobile md:px-gutter-tablet xl:px-gutter-desktop">
+            {/* The same treatment as "Where are you now?" and "How we think":
+                the "))" mark beside a large Poppins line, revealed by MaskedText.
+                `tone="current"` so the mark inherits the white above it — its
+                brand oranges would vanish into this section's background.
+
+                The grid matches those sections too: title on columns 1-4, content
+                on 7-12, stated as start and end LINES because `col-span-*`
+                compiles to a shorthand that overrides a neighbouring `col-end-*`.
+
+                The statement keeps the `h2`. This title is a paragraph, as the
+                other two are — one heading per section. */}
+            <div className="grid gap-6 lg:grid-cols-12 lg:gap-8">
+              <div className="flex gap-[0.4em] font-sans text-accent-xl font-medium text-text-on-accent lg:col-start-1 lg:col-end-5">
+                <DoubleChevronIcon
+                  tone="current"
+                  className="h-[1em] w-auto shrink-0"
+                />
+                <MaskedText lines={["What we build"]} />
+              </div>
+              {/* `as="h2"` because this is the section's heading and has to stay
+                  one — MaskedText renders a paragraph otherwise, and a `<p>`
+                  inside an `<h2>` is invalid HTML that browsers "fix" by closing
+                  the heading early. Same arrangement as the situations section. */}
+              <MaskedText
+                as="h2"
+                lines={["The right work starts with the right question."]}
+                className="max-w-4xl type-display-sm text-text-on-accent text-balance lg:col-start-7 lg:col-end-13"
+              />
+            </div>
           </div>
 
-          <div className="mt-16 border-t border-border-strong">
-            {services.map((service, index) => (
-              <article
-                key={service.name}
-                className="grid gap-5 border-b border-border-default py-8 md:grid-cols-12 md:items-start"
-              >
-                <span className="type-small text-text-muted md:col-span-1">
-                  {String(index + 1).padStart(2, "0")}
-                </span>
-                <h3 className="type-h1 text-text-primary md:col-span-5">
-                  {service.name}
-                </h3>
-                <p className="max-w-lg type-body text-text-body md:col-span-5">
-                  {service.shortPromise}
-                </p>
-                <span
-                  className="hidden justify-self-end text-text-primary md:block"
-                  aria-hidden="true"
-                >
-                  ↗
-                </span>
-              </article>
-            ))}
+          {/* The five services. Same five, same order, same numbering — the
+              row layout, the sticky stack and the focus animation all live in
+              service-rows.tsx, and the copy in app/_lib/services.ts.
+
+              Deliberately OUTSIDE the inset above: every row is full-bleed so
+              its rule crosses the whole screen, and repeats the same gutters
+              internally so the words stay on the grid. `surface` is this
+              section's background, which a stacked row has to be opaque in to
+              cover the row beneath it.
+
+              The decorative `↗` that used to sit at the right edge of each row
+              is gone: the reserved media rectangle occupies that place now. It
+              was `aria-hidden`, so nothing announced changed. */}
+          <div className="mt-16">
+            <ServiceRows services={services} surface="bg-primary-300" />
           </div>
 
-          <TextLink
+          {/* Flush under the list, so it reads as the row that leaves for the
+              services page. Full-bleed for the same reason the rows are, and
+              rendered outside the inset for the same reason too. */}
+          <CtaRow
             href="/services/"
             label="Explore our services"
-            className="mt-10"
+            tone="inverse"
           />
         </div>
       </section>
 
-      <section className="border-y border-border-default bg-surface-raised">
+      {/* `relative isolate` for the wipe: a positioning parent, and a confined
+          z-index so a layer meant to cover the orange above cannot also cover
+          the header. `surface` is this section's own background — the whole
+          trick is that the finished cover is indistinguishable from the section
+          arriving, which is also why the layer reaches UP past the section
+          rather than sitting over it. See pixel-wipe.tsx. */}
+      <section className="relative isolate border-y border-border-default bg-surface-raised">
+        <PixelWipe surface="bg-surface-raised" />
         <div className="mx-auto grid w-full max-w-page gap-12 px-gutter-mobile py-section-mobile md:px-gutter-tablet md:py-section-tablet lg:grid-cols-12 xl:px-gutter-desktop">
           <div className="lg:col-span-6">
             <p className="type-label text-text-muted">05 / Proof</p>

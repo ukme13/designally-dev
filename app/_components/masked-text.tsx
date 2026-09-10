@@ -216,7 +216,7 @@ export default function MaskedText({
            typography above governs the line box it clips to. */
         /* Keyed by position. These wrappers are this component's own list, not
            the caller's, and nothing reorders or filters it. */
-        <span key={index} className="-my-[0.25em] block overflow-hidden">
+        <span key={index} className="my-[-0.25em] block overflow-hidden">
           <span
             className={`block py-[0.25em] group-data-[reveal=hidden]:translate-y-full ${REVEAL_MOTION}`}
             style={{ "--reveal-delay": `${index * REVEAL_STAGGER_MS}ms` } as CSSProperties}

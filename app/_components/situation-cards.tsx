@@ -290,7 +290,7 @@ function SituationCard({
                 the default dark inks it used to carry were chosen for the
                 page's own light surface. The link takes the `inverse` tone for
                 the same reason. */}
-            <div className="mt-8 flex items-center justify-between type-small text-text-on-accent/70">
+            <div className="mt-4 flex items-center justify-between type-small text-text-on-accent/70">
               <span>{situation.number}</span>
               <span>{situation.name}</span>
             </div>

@@ -24,8 +24,17 @@ export type ServiceFaq = {
 export type Service = {
   slug: string;
   name: string;
-  /** One-line promise, shared with the services index and the homepage. */
+  /** One-line promise, shared with the services index and the service page. */
   shortPromise: string;
+  /**
+   * The homepage list's description. Around thirty words.
+   *
+   * A field of its own rather than a longer `shortPromise`, because that one is
+   * a single line by contract and appears in two other places that want it
+   * short. And not `intro` either: that is written to open a page, this to sit
+   * under a title in a list.
+   */
+  summary: string;
   intro: string;
   /** Business situations that make this service useful. */
   situations: string[];
@@ -55,6 +64,8 @@ export const services: Service[] = [
     name: "Brand Strategy",
     shortPromise:
       "Clarify the market, audience, position, and direction before making visible decisions.",
+    summary:
+      "Brand strategy settles the decisions everything else depends on: who the business is for, where it sits against the alternatives, and what it needs to stand for before anything is designed.",
     intro:
       "Strategy is the part of the work that decides what everything else is for. It sets out who the business is for, what it stands against, and what has to be true before design can carry any of it.",
     situations: [
@@ -125,6 +136,8 @@ export const services: Service[] = [
     name: "Branding and Brand Identity",
     shortPromise:
       "Turn strategy into a clear verbal and visual system people can recognise and use.",
+    summary:
+      "Strategy becomes something people can see and read: a visual and verbal system that makes the business recognisable, holds together across every use, and stays consistent as the team grows.",
     intro:
       "Identity is where the direction becomes something people can see, read and remember. The aim is a system the business can actually run — not a set of images that only works in the presentation that introduced them.",
     situations: [
@@ -194,6 +207,8 @@ export const services: Service[] = [
     name: "Rebranding",
     shortPromise:
       "Help an established business change without losing what already has value.",
+    summary:
+      "When an identity no longer matches where the business is going, we move it forward deliberately — keeping the recognition and relationships that already have value, and making the case for what changes.",
     intro:
       "Rebranding is a change-management problem as much as a design one. The work is to move the business forward while keeping the recognition, relationships and meaning it has already earned.",
     situations: [
@@ -264,6 +279,8 @@ export const services: Service[] = [
     name: "Websites and Digital Experiences",
     shortPromise:
       "Create useful digital experiences that express the brand and support the business.",
+    summary:
+      "A website is where the brand works with nobody there to explain it. We turn strategy and identity into digital experiences that are clear to use and honest about what the business does.",
     intro:
       "A website is usually the first place the brand has to work without anyone there to explain it. It has to say what the business is, be genuinely usable, and be something the team can keep updated.",
     situations: [
@@ -334,6 +351,8 @@ export const services: Service[] = [
     name: "Creative Partner",
     shortPromise:
       "Provide ongoing strategic and creative support as the brand grows and changes.",
+    summary:
+      "For businesses that need creative judgement available rather than another project: ongoing support across brand, digital, campaigns and the day-to-day, from a team that already understands the context.",
     intro:
       "Some businesses do not need a project. They need consistent creative judgement available as things come up, from a team that already understands the brand and does not need re-briefing every time.",
     situations: [

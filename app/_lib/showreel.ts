@@ -161,6 +161,17 @@ export const PIXEL_TARGET_CELLS = 144;
 export const PIXEL_COLUMNS = 16;
 export const PIXEL_ROWS = 9;
 
+/**
+ * How far the cell count may drift from the target in exchange for squarer
+ * cells, as a fraction.
+ *
+ * The search below trades one against the other. 0.2 keeps every arrangement
+ * between about 115 and 173 cells, so the reveal still takes a comparable
+ * number of steps at every size, while leaving enough room to pick a genuinely
+ * square pair rather than the first one that multiplies to 144.
+ */
+const PIXEL_CELL_BUDGET = 0.2;
+
 export type PixelGrid = { columns: number; rows: number };
 
 /**
@@ -172,28 +183,88 @@ export type PixelGrid = { columns: number; rows: number };
  * fills the screen height on mobile, where a portrait box would have turned
  * every cell into a tall rectangle and every "circle" into an ellipse.
  *
- * columns = sqrt(cells * aspect) is the arrangement that squares them: with
+ * `columns = sqrt(cells * aspect)` is the continuous answer: with
  * `columns * rows = cells` and `columns / rows = aspect`, that is what falls
- * out. Rounded, then rows derived from the rounded columns so the two always
- * multiply back to something near the target.
+ * out. But columns and rows have to be WHOLE NUMBERS, and rounding is where the
+ * squareness goes.
+ *
+ * **Deriving rows from the target rather than from the rounded columns was the
+ * bug.** `rows = round(cells / columns)` and `rows = round(columns / aspect)`
+ * are the same expression before rounding and diverge after it, because the
+ * first uses the ideal column count and the second the one actually chosen. On
+ * a 1400x712 box that produced 17 x 8 and cells 7.5% off square — visible as
+ * rounded rectangles rather than rounded squares partway through the morph.
+ *
+ * So this searches instead. A handful of column counts either side of the ideal,
+ * each with the two row counts that bracket `columns / aspect`, scored on how
+ * close the resulting cell comes to square and tie-broken on staying near the
+ * target count. At most ten candidates, all integer arithmetic, and the same
+ * answer every time for a given shape.
+ *
+ * Measured against the old formula: 1400x712 7.5% -> 1.7%, 1024x480 5.2% ->
+ * 0.4%, a 390x484 phone 4.8% -> 2.6%, and 16:9 unchanged at 0.0%. The residual
+ * never reaches zero for an arbitrary box — integers cannot tile every shape
+ * squarely — but it is now small enough not to read as a mistake.
+ *
+ * `target` is how many cells to aim for. It defaults to the showreel's own
+ * `PIXEL_TARGET_CELLS` and is a parameter because the section wipe wants a
+ * denser grid from the same arithmetic — the squareness search has nothing to
+ * do with how many cells there are, and duplicating it for a different count
+ * would mean two copies of the one thing here worth getting right.
  *
  * Clamped at both ends. A pathological box — a sliver during a resize, a
  * measurement of zero — must not produce a grid of one enormous cell or of
- * thousands of invisible ones.
+ * thousands of invisible ones. A shape so extreme that nothing fits the cell
+ * budget falls back to the old formula rather than to the 16:9 default, so it
+ * degrades instead of jumping.
  */
-export function pixelGrid(aspect: number): PixelGrid {
+export function pixelGrid(
+  aspect: number,
+  target: number = PIXEL_TARGET_CELLS,
+): PixelGrid {
   if (!Number.isFinite(aspect) || aspect <= 0) {
     return { columns: PIXEL_COLUMNS, rows: PIXEL_ROWS };
   }
-  const columns = Math.min(
-    32,
-    Math.max(4, Math.round(Math.sqrt(PIXEL_TARGET_CELLS * aspect))),
-  );
-  const rows = Math.min(
-    32,
-    Math.max(4, Math.round(PIXEL_TARGET_CELLS / columns)),
-  );
-  return { columns, rows };
+
+  const clamp = (value: number) => Math.min(32, Math.max(4, value));
+  const seed = clamp(Math.round(Math.sqrt(target * aspect)));
+
+  let best: PixelGrid | undefined;
+  let bestError = Number.POSITIVE_INFINITY;
+  let bestDrift = Number.POSITIVE_INFINITY;
+
+  for (let columns = clamp(seed - 2); columns <= clamp(seed + 2); columns += 1) {
+    /* The row count that would make this column count square, and the two
+       whole numbers around it. */
+    const ideal = columns / aspect;
+    for (const candidate of [Math.floor(ideal), Math.ceil(ideal)]) {
+      if (candidate < 4 || candidate > 32) continue;
+
+      const drift = Math.abs(columns * candidate - target);
+      if (drift > target * PIXEL_CELL_BUDGET) continue;
+
+      /* A cell measures (width / columns) by (height / rows), so its aspect is
+         the box's aspect times rows over columns. 1 is square. */
+      const error = Math.abs((aspect * candidate) / columns - 1);
+
+      /* Squareness first, then the count. The epsilon stops two arrangements
+         that are equally square from being ordered by floating-point noise. */
+      const squarer = error < bestError - 1e-4;
+      const asSquare = Math.abs(error - bestError) <= 1e-4;
+      if (squarer || (asSquare && drift < bestDrift)) {
+        best = { columns, rows: candidate };
+        bestError = error;
+        bestDrift = drift;
+      }
+    }
+  }
+
+  if (best) return best;
+
+  /* Nothing fitted the budget — an aspect extreme enough that the row count
+     clamps before the count can balance. The old formula at least tiles. */
+  const columns = clamp(Math.round(Math.sqrt(target * aspect)));
+  return { columns, rows: clamp(Math.round(target / columns)) };
 }
 
 /**
