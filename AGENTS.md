@@ -187,6 +187,16 @@ provide context, but they are not enough to confirm an implementation.
 
 The website's credibility is the product. Content rules are not optional.
 
+- Before writing or editing public-facing content, read
+  `docs/content/BRAND-VOICE.md`. For website copy, headings, metadata, FAQs,
+  image descriptions, or content planning, also read
+  `docs/content/SEO-AEO-GEO.md`. These guides are not required for code-only
+  changes that do not affect content or search behaviour. For technical
+  search work, read the search guide and relevant installed framework docs.
+- Use the 2026 brand strategy for voice and positioning. The existing visual
+  identity remains active while the new identity is being designed. Keep
+  existing assets and `app/tokens.css`; a copy task does not authorise a
+  visual identity change.
 - Never invent client results, metrics, testimonials, quotations, team
   members, office addresses, telephone numbers, response times, or legal text.
 - Publish a client name, logo or outcome only where the planning documents
