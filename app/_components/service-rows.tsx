@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useRef } from "react";
 
 import type { ElementSlots } from "@/app/_lib/element-slots";
@@ -15,7 +16,7 @@ import { useServiceRows } from "@/app/_lib/use-service-rows";
  * ── The knobs ────────────────────────────────────────────────────────────
  *   the page grid    GRID, PAGE_INSET and the AREA lines
  *   the visible band PAD.top and PAD.tail
- *   media            MEDIA
+ *   media            MEDIA, IMAGES
  *   the stacking     use-service-rows.ts
  * ─────────────────────────────────────────────────────────────────────────
  *
@@ -59,9 +60,9 @@ import { useServiceRows } from "@/app/_lib/use-service-rows";
  * Below `lg` there is no grid and no stacking — the four parts simply follow
  * one another, which is what a phone wants. See STACK_QUERY in the hook.
  *
- * **The media box is empty on purpose.** A reserved rectangle at a fixed ratio,
- * waiting for an SVG or a PNG per service; nothing is invented to fill it.
- * Because the ratio holds the space, real artwork changes nothing else.
+ * **Each row has an illustration**, from IMAGES, at the section's 4:5 ratio. A
+ * row without one keeps an empty tinted box of the same shape, so a new service
+ * can go in before its artwork exists without breaking the layout.
  *
  * A `<ul>` of `<li>`s: five items of one kind in a stated order. The number is
  * real text rather than a CSS counter, because it is content — the services are
@@ -107,6 +108,29 @@ const STICKER_SLUG = "websites";
  * reads as a held space. Whatever fills it should match the ratio.
  */
 const MEDIA = "aspect-portrait bg-text-on-accent/10";
+
+/**
+ * Each row's illustration, by slug. WebP at 1120 x 1400, converted from the
+ * owner's PNGs; next/image serves smaller copies to smaller screens. A slug
+ * missing from here gets the empty box instead of a broken image.
+ */
+const IMAGES: Record<string, string> = {
+  "brand-strategy": "/what-we-build/brand-strategy.webp",
+  "branding-identity": "/what-we-build/branding-identity.webp",
+  rebranding: "/what-we-build/rebranding.webp",
+  websites: "/what-we-build/websites.webp",
+  "creative-partner": "/what-we-build/creative-partner.webp",
+};
+
+/** The files' natural size, which next/image uses for the ratio. */
+const MEDIA_SIZE = { width: 1120, height: 1400 };
+
+/**
+ * How wide the picture is drawn, so the browser fetches a copy that size: a
+ * third of the page from `lg`, the capped column (28rem) on a tablet, the full
+ * width on a phone.
+ */
+const MEDIA_SIZES = "(min-width: 1024px) 30vw, (min-width: 480px) 28rem, 100vw";
 
 export default function ServiceRows({
   services,
@@ -173,28 +197,45 @@ export default function ServiceRows({
               <div
                 className={`relative mt-8 w-full max-w-md lg:mt-0 lg:max-w-none ${AREA.media}`}
               >
-                {/* Decorative until it holds anything, so it says nothing to a
-                    screen reader — every word that matters is in the copy
-                    beside it. Capped above, where a full-width 4:5 block per
-                    row would make the section several screens taller on a
-                    phone.
+                {/* The row's illustration, or the empty tinted box if it has
+                    none yet. Decorative either way: the title and description
+                    beside it say everything the picture does, so the image has
+                    an empty `alt`. Nothing is hidden on the wrapper, because
+                    the sticker inside it is real copy and would be announced
+                    to nobody.
 
-                    `aria-hidden` is on THIS box and not the wrapper: the
-                    sticker is real copy, and inside a hidden subtree it would
-                    be announced to nobody. */}
-                <div
-                  aria-hidden="true"
-                  className={`w-full rounded-md ${MEDIA}`}
-                />
+                    The tint in MEDIA shows while the image loads, and the ratio
+                    holds the space, so nothing moves when it arrives. The
+                    wrapper caps the width below `lg`, where a full-width 4:5
+                    picture per row would make the section several screens
+                    taller. */}
+                {IMAGES[service.slug] ? (
+                  <Image
+                    src={IMAGES[service.slug]}
+                    alt=""
+                    width={MEDIA_SIZE.width}
+                    height={MEDIA_SIZE.height}
+                    sizes={MEDIA_SIZES}
+                    className={`w-full rounded-md object-cover ${MEDIA}`}
+                  />
+                ) : (
+                  <div
+                    aria-hidden="true"
+                    className={`w-full rounded-md ${MEDIA}`}
+                  />
+                )}
 
-                {/* Stuck to the image's bottom-right corner. Inset rather than
-                    hanging off it: the media reaches the last column, so a
-                    negative offset would put the sticker in the page gutter and
-                    risk horizontal overflow at some width. The inset also
-                    leaves room for the tilt, which throws a corner about 20px
-                    wider than the upright box. */}
+                {/* Stuck to the image's bottom-right corner, hanging a little
+                    past its right edge. Dark ink, not the section's white: on
+                    the Websites row it sits on the illustration's bright
+                    yellow, where white text all but disappears. The dark ink
+                    reads on the orange past the edge too.
+
+                    Hanging past the edge puts it in the page gutter, which is
+                    only 24px on a phone, so check a narrow screen for sideways
+                    scrolling. */}
                 {service.slug === STICKER_SLUG ? (
-                  <ConvoSticker className="absolute -right-8 bottom-6 text-text-on-accent" />
+                  <ConvoSticker className="absolute -left-12 -bottom-6 font-medium text-text-primary/80" />
                 ) : null}
               </div>
             </div>

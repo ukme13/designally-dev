@@ -179,8 +179,9 @@ Complete. `app/_components/service-rows.tsx` with `app/_lib/use-service-rows.ts`
 - Rows stack against the top of the screen and the finished stack leaves as one
   piece. Transformed, not `position: sticky` — see ADR-006 for why sticky cannot
   do the second half of that.
-- A reserved `aspect-portrait` media rectangle per row, top-aligned with the
-  title so a strip of it survives the stack. **Empty: no artwork exists yet.**
+- An illustration per row at 4:5, top-aligned with the title so a strip of it
+  survives the stack: WebP in `public/what-we-build/`, served through
+  next/image, decorative (`alt=""`).
 - The "we should have a convo!" sticker on row 04, from designally.co's own
   online brand guide.
 
@@ -194,6 +195,25 @@ Complete. `app/_components/cta-row.tsx`.
 - One label, not two: white reads on both the orange it stands on and the black
   that crosses it. A tone whose fill needs the ink to flip cannot use this
   structure — the file says why.
+
+### Client logo strip
+
+Complete. `app/_components/client-logo-strip.tsx` under "05 / Proof", reading
+`app/_lib/clients.ts`.
+
+- 16 clients in two rows of eight, in the order recorded in
+  `docs/assets/client-logos/manifest.json`. Permission is recorded in
+  `docs/content/CLIENT-LOGO-PERMISSIONS.md`, 2026-09-11.
+- One ink (`bg-text-primary`) through CSS masks, with the outer fifth fading
+  on each side.
+- The rows loop continuously and seamlessly, the top row left and the bottom
+  row right, at the same speed. They keep moving under the pointer, by the
+  owner's choice, and stay still with reduced motion. Each track holds three copies of its row; only the first is
+  announced to screen readers. The strip is clipped, so it cannot scroll the
+  page sideways.
+- The artwork is one-ink PNG masks prepared from the existing JPGs by
+  `docs/assets/client-logos/prepare-masks.py`. Two wordmarks are soft at
+  display size; see Homepage, outstanding.
 
 ### Adaptive header logo tone
 
@@ -240,6 +260,11 @@ cheap to correct:
   permission record exists for any of them. The films were served from the live
   site, which is evidence of past use, not of current permission to reuse. This
   blocks launch, not development.
+- **"150+ brands" on the homepage.** The Proof section's count-up figure, from
+  the 2026 brand strategy. Its on-page draft footnote was removed with the old
+  proof cards on 11 September 2026, so this list is now its only marker.
+  `docs/specs/HOMEPAGE.md` requires it confirmed or updated before
+  publication. This blocks launch, not development.
 - `hello@designally.co` — `app/_lib/navigation.ts`
 - Telephone `0650055993` — `app/_lib/navigation.ts`, not currently displayed
 - Company name `Designally Co., Ltd.` — used in the footer
@@ -250,7 +275,10 @@ remain on the brief's "evidence needed before launch" list.
 
 ## Not started
 
-- **Sanity, or any content platform.** See `ADR-002`.
+- **Sanity, or any content platform.** See `ADR-002`. ADR-007 is accepted. The
+  site's Sanity client is wired up in `app/_lib/insights.ts` and falls back to
+  the static list when Sanity isn't configured. The Studio, the webhook route
+  and the shape-masked cards are not built yet.
 - Project detail pages under `/works/<slug>/`.
 - Insight article pages under `/insights/<slug>/`.
 - Thai content and the `/th/` route tree. `IBM Plex Sans Thai` is loaded and a
@@ -278,28 +306,36 @@ remain on the brief's "evidence needed before launch" list.
 
 ### Homepage, outstanding
 
+- **Client logos: resolution.** The 16 strip logos are masks made from the old
+  About page's 174 × 123 JPGs. SO/ Bangkok and Banpu NEXT are scaled up 2.7× on
+  a 2× screen and will look soft. Boonthavorn, Pomelo, CP Land and DDProperty
+  will look slightly soft. Replace them first with official transparent
+  artwork; see `docs/assets/client-logos/README.md`.
 - **The first film is fetched on every homepage load.** The showreel is on
   screen at first paint now, so `preload` no longer stays `"none"` — LAGA
   (1,063,184 B) is part of the initial media cost for every visitor, where
   before only those who scrolled paid it. Not measured, no decision taken.
 - **No placeholder sections remain on the homepage.** The last one is now the
   situations section.
-- **Unreviewed copy in three places.** The paragraph beside "Case Study", the
-  situations cards, and the "how we think" body were all written into the page
-  rather than taken from an approved source. The five service descriptions are
-  no longer among them — they were reviewed against both content guides on
+- **Unreviewed copy in four places.** The paragraph beside "Case Study", the
+  situations cards, the "how we think" body and the note beside "Our thinking"
+  were all written into the page rather than taken from an approved source.
+  The Insights note was written against both content guides on 11 September
+  2026, but still needs the owner's approval. The five service descriptions
+  are no longer among them — they were reviewed against both content guides on
   10 September 2026.
 - The Insights section still uses the older `col-span-3` / `9` layout rather
   than the 1-4 / 7-12 grid the other four share. Services now shares it.
-- **The five service media rectangles are empty**, and so is the space they
-  hold. Ratio and surface are placeholders; `MEDIA` in `service-rows.tsx` is
-  the one place to change both. When artwork lands, recheck the sticker's
-  contrast over it.
 - **The floating logo disappears for a moment at both pixel wipes.** See the
   known gap under Adaptive header logo tone.
 - **The showcase row has no pause control.** It moves whenever the page is not
   still, which is a WCAG 2.2.2 question for moving content. Reduced motion
   stops it entirely, but that is a different audience.
+- **The client logo strip never pauses.** It moves continuously and, by the
+  owner's choice, keeps moving under the pointer. The WCAG 2.2.2 question
+  therefore applies to everyone except visitors with reduced motion turned on:
+  nobody else can stop it. A pause button would answer this and the showcase
+  together.
 
 ### Waiting on visual review
 

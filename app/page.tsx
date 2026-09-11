@@ -9,13 +9,15 @@ import PixelWipe from "@/app/_components/pixel-wipe";
 import SituationCards from "@/app/_components/situation-cards";
 import SofaFrames from "@/app/_components/sofa-frames";
 import ScrollGradientText from "@/app/_components/scroll-gradient-text";
+import ClientLogoStrip from "@/app/_components/client-logo-strip";
 import CtaRow from "@/app/_components/cta-row";
+import CountUp from "@/app/_components/count-up";
 import SectionTitle from "@/app/_components/section-title";
 import ServiceRows from "@/app/_components/service-rows";
 import ShowcaseLoop from "@/app/_components/showcase-loop";
 import Showreel from "@/app/_components/showreel";
 import TextLink from "@/app/_components/text-link";
-import { featuredInsights } from "@/app/_lib/insights";
+import { getFeaturedInsights } from "@/app/_lib/insights";
 import { services } from "@/app/_lib/services";
 import { situations } from "@/app/_lib/situations";
 
@@ -27,6 +29,36 @@ export const metadata: Metadata = {
     canonical: "/",
   },
 };
+
+/**
+ * The homepage's insight cards. From Sanity when it is configured, from
+ * app/_lib/insights.ts when it is not. See ADR-007.
+ *
+ * An async component of its own so that Home stays synchronous. When the whole
+ * page awaited the data, React emitted the page's resource hints in a different
+ * order, with the footer duck's preload ahead of the showreel poster's. Awaiting
+ * here, inside the one section that needs the data, leaves everything above it
+ * exactly as it was.
+ */
+async function FeaturedInsightCards() {
+  const featuredInsights = await getFeaturedInsights();
+
+  return featuredInsights.map((insight, index) => (
+    <article
+      key={insight.title}
+      className="flex min-h-96 flex-col rounded-md border border-border-default p-7"
+    >
+      <div className="flex items-center justify-between text-xs tracking-label text-text-muted uppercase">
+        <span>{insight.topic}</span>
+        <span>{String(index + 1).padStart(2, "0")}</span>
+      </div>
+      <h3 className="mt-14 type-h1-alt text-text-primary">{insight.title}</h3>
+      <p className="mt-auto pt-8 type-small text-text-secondary">
+        {insight.summary}
+      </p>
+    </article>
+  ));
+}
 
 export default function Home() {
   return (
@@ -364,11 +396,14 @@ export default function Home() {
                 text="We help businesses create, grow, and transform through strategy, identity, rebranding, and digital design. We work alongside the people shaping the business to find the right direction, build a brand system that holds together, and create the experiences it needs next. No design for decoration—just clear thinking and work built to matter."
                 className="text-accent-lg"
               />
-              <TextLink
+              {/* The compact band: 64px between two rules, inside this
+                  column. `w-full` because the note is a flex column that
+                  starts its items rather than stretching them. */}
+              <CtaRow
                 href="/works/"
                 label="View selected work"
-                size="md"
-                sweep
+                size="compact"
+                className="w-full"
               />
             </>
           }
@@ -475,17 +510,14 @@ export default function Home() {
                 <span>03</span>
               </li>
             </ol>
-            <TextLink
+            {/* The same compact band as "View selected work": 64px between
+                two rules, across this column, with orange wiping through on
+                hover or keyboard focus. */}
+            <CtaRow
               href="/about/"
               label="See how we work"
-              size="md"
-              /* `sweep` rather than a static `underline`: the rule is drawn by
-                 an `::after` held at `scale-x-0` and released on hover, so it
-                 wipes across the way the header's nav links do. A permanent
-                 underline alongside it would be a second, motionless line under
-                 the same words. */
-              sweep
-              className="mt-10"
+              size="compact"
+              className="mt-10 w-full"
             />
           </div>
         </div>
@@ -521,11 +553,10 @@ export default function Home() {
             of a padded parent would need negative margins that come undone at
             every breakpoint. See service-rows.tsx.
 
-            Top padding only: the CTA band is the last thing in the section and
-            closes it, so the usual bottom padding would leave a strip of
-            orange under a band that is meant to run into the next section.
-            div className="pt-section-mobile md:pt-section-tablet xl:pt-section-desktop">*/}
-        <div className="pt-6">
+            The section's usual bottom padding sits under the CTA band, so the
+            band reads as the list's last row rather than as the section's
+            edge. */}
+        <div className="pt-6 pb-section-mobile md:pb-section-tablet xl:pb-section-desktop">
           <div className="mx-auto w-full max-w-page px-gutter-mobile md:px-gutter-tablet xl:px-gutter-desktop">
             {/* The same treatment as "Where are you now?" and "How we think":
                 the "))" mark beside a large Poppins line, revealed by MaskedText.
@@ -552,7 +583,14 @@ export default function Home() {
                   the heading early. Same arrangement as the situations section. */}
               <MaskedText
                 as="h2"
-                lines={["The right work starts with the right question."]}
+                lines={[
+                <Fragment key="right-question">
+                  {/* One italic letter, as in "Cre<i>a</i>tive" and
+                      "Fou<i>n</i>dation": the same EB Garamond, so the mask
+                      is already measured for it. */}
+                  The <span className="font-accent">right</span> work starts with the <span className="font-accent">right</span> question.
+                </Fragment>,
+              ]}
                 className="max-w-4xl type-display-sm text-text-on-accent text-balance lg:col-start-7 lg:col-end-13"
               />
             </div>
@@ -592,69 +630,77 @@ export default function Home() {
           trick is that the finished cover is indistinguishable from the section
           arriving, which is also why the layer reaches UP past the section
           rather than sitting over it. See pixel-wipe.tsx. */}
-      <section className="relative isolate border-y border-border-default bg-surface-raised">
+      <section className="relative isolate border-y border-border-default bg-surface-raised min-h-screen">
         <PixelWipe surface="bg-surface-raised" />
-        <div className="mx-auto grid w-full max-w-page gap-12 px-gutter-mobile py-section-mobile md:px-gutter-tablet md:py-section-tablet lg:grid-cols-12 xl:px-gutter-desktop">
-          <div className="lg:col-span-6">
-            <p className="type-label text-text-muted">05 / Proof</p>
-            <h2 className="mt-8 max-w-xl type-display-sm text-text-primary">
-              Built with care. Proven through the work.
+        <div className="mx-auto grid w-full max-w-page gap-x-12 gap-y-32 px-gutter-mobile pt-4 pb-section-mobile md:px-gutter-tablet md:pb-section-tablet lg:grid-cols-12 xl:px-gutter-desktop">
+          {/* The proof point, then the section's heading. The DOM order is
+              the visual order, so a screen reader meets them in the sequence
+              they are seen.
+
+              The number counts up when it scrolls into view, and again after
+              the reader scrolls back up past it. The server sends the finished
+              figure, which is what visitors without JavaScript or with reduced
+              motion keep. See count-up.tsx.
+
+              "+" because the source claim is "150+ brands", from the 2026
+              brand strategy. A bare "150" would be a different claim, and
+              nothing records it. */}
+          <div className="text-center lg:col-start-1 lg:col-end-13">
+            <p>
+              <CountUp
+                to={150}
+                suffix="+"
+                className="block font-display font-medium text-display-xl text-text-primary"
+              />
+              <span className="mt-3 block text-accent-lg text-text-secondary">
+                Brands supported
+              </span>
+            </p>
+            <h2 className="mx-auto mt-10 max-w-4xl type-h1-alt text-text-primary text-balance">
+              Built with c<i>a</i>re. Proven through the work.
             </h2>
           </div>
-          <div className="grid gap-4 sm:grid-cols-2 lg:col-span-6">
-            <div className="flex min-h-52 flex-col justify-between rounded-md bg-text-primary p-7 text-white">
-              <strong className="font-display text-6xl font-medium">
-                150+
-              </strong>
-              <span className="type-small text-neutral-200">
-                Brands supported*
-              </span>
-            </div>
-            <div className="flex min-h-52 flex-col justify-between rounded-md bg-secondary-400 p-7 text-white">
-              <strong className="font-display text-5xl font-medium">
-                Bangkok
-              </strong>
-              <span className="type-small text-secondary-50">
-                Thailand · Working across markets
-              </span>
-            </div>
-            <p className="text-xs text-text-secondary sm:col-span-2">
-              *This proof point comes from the 2026 brand strategy and must be
-              confirmed before launch.
-            </p>
-          </div>
+          {/* Client logos, across the full grid under the proof point. Renders
+              nothing without an approved client; see app/_lib/clients.ts. */}
+          <ClientLogoStrip className="lg:col-start-1 lg:col-end-13" />
         </div>
       </section>
 
-      <section id="insights" className="scroll-mt-8">
-        <div className="mx-auto w-full max-w-page px-gutter-mobile py-section-mobile md:px-gutter-tablet md:py-section-tablet xl:px-gutter-desktop xl:py-section-desktop">
-          <div className="grid gap-8 lg:grid-cols-12">
-            <p className="type-label text-text-muted lg:col-span-3">
-              06 / Our thinking
-            </p>
-            <h2 className="max-w-4xl type-display-sm text-text-primary lg:col-span-9">
-              Useful thinking for important brand decisions.
-            </h2>
-          </div>
+      <section
+        id="insights"
+        className="scroll-mt-8 py-section-mobile md:py-section-tablet xl:py-section-desktop"
+      >
+        {/* The Case Study title's treatment: the "))" mark and a two-tone
+            Poppins heading on the left, the supporting line on the right, at
+            the Case Study note's size. See section-title.tsx.
 
+            SectionTitle brings its own page inset, so it sits outside the
+            padded container below rather than inside it, where the gutters
+            would double. The vertical padding moved up to the section for the
+            same reason.
+
+            The note names the subjects of the three launch articles in
+            docs/specs/HOMEPAGE.md, Section 7, so it describes the cards
+            beneath it. "Drawn from our own work" is the spec's rule for every
+            article, so it holds only while the articles meet it. */}
+        <SectionTitle
+          title={
+            <Fragment>
+              Our <span className="text-action-primary">thinking</span>
+            </Fragment>
+          }
+          note={
+            <p className="text-accent-lg">
+              Useful thinking for important brand decisions: when it is time
+              to rebrand, whether strategy or identity comes first, and how to
+              change without losing what people already trust. Plain answers,
+              drawn from our own work.
+            </p>
+          }
+        />
+        <div className="mx-auto w-full max-w-page px-gutter-mobile md:px-gutter-tablet xl:px-gutter-desktop">
           <div className="mt-16 grid gap-6 md:grid-cols-3">
-            {featuredInsights.map((insight, index) => (
-              <article
-                key={insight.title}
-                className="flex min-h-96 flex-col rounded-md border border-border-default p-7"
-              >
-                <div className="flex items-center justify-between text-xs tracking-label text-text-muted uppercase">
-                  <span>{insight.topic}</span>
-                  <span>{String(index + 1).padStart(2, "0")}</span>
-                </div>
-                <h3 className="mt-14 type-h1-alt text-text-primary">
-                  {insight.title}
-                </h3>
-                <p className="mt-auto pt-8 type-small text-text-secondary">
-                  {insight.summary}
-                </p>
-              </article>
-            ))}
+            <FeaturedInsightCards />
           </div>
           <div className="mt-8 flex flex-wrap items-center justify-between gap-6">
             <p className="max-w-text type-small text-text-secondary">

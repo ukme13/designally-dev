@@ -45,6 +45,12 @@
   --color-cream: #faf9f5;
 
   /* Type scale */
+  /* One oversized figure, such as the Proof section's count: 80px on a phone,
+     reaching 160px at about 1400px wide. Keep it to a few characters; at this
+     size anything longer wraps. */
+  --text-display-xl: clamp(5rem, 3rem + 8vw, 10rem);
+  --text-display-xl--line-height: 1;
+  --text-display-xl--letter-spacing: -0.02em;
   --text-display: clamp(3rem, 2.16rem + 3.59vw, 5.75rem);
   --text-display--line-height: 1;
   --text-display--letter-spacing: -0.01em;
@@ -105,7 +111,7 @@
   --container-text: 44rem;
   --container-default: 71.25rem;
   --container-wide: 87.5rem;
-  --container-page: 130rem;
+  --container-page: 120rem;
 
   --spacing-gutter-mobile: 1.5rem;
   --spacing-gutter-tablet: 2.5rem;
@@ -128,6 +134,33 @@
   --shadow-low: 0 1px 1px rgb(29 28 25 / 5%), 0 2px 8px rgb(29 28 25 / 5%);
   --shadow-med: 0 1px 2px rgb(29 28 25 / 10%), 0 2px 12px rgb(29 28 25 / 10%);
   --shadow-high: 0 2px 2px rgb(29 28 25 / 16%), 0 8px 24px rgb(29 28 25 / 22%);
+
+  /* The client logo strip's two directions. Generic: the distance and the
+     duration come from the element, as --marquee-shift and --marquee-duration,
+     so these know nothing about how many copies a track holds. `linear`,
+     because any easing would visibly slow down and speed up at the loop. */
+  --animate-marquee-left: marquee-left var(--marquee-duration, 60s) linear
+    infinite;
+  --animate-marquee-right: marquee-right var(--marquee-duration, 60s) linear
+    infinite;
+
+  @keyframes marquee-left {
+    from {
+      transform: translateX(0);
+    }
+    to {
+      transform: translateX(var(--marquee-shift, -50%));
+    }
+  }
+
+  @keyframes marquee-right {
+    from {
+      transform: translateX(var(--marquee-shift, -50%));
+    }
+    to {
+      transform: translateX(0);
+    }
+  }
 
   --animate-scribble: scribble 2s ease-in-out infinite;
 

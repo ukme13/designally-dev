@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import DraftNotice from "@/app/_components/draft-notice";
 import PageIntro from "@/app/_components/page-intro";
 import Section from "@/app/_components/section";
-import { insights } from "@/app/_lib/insights";
+import { getInsights } from "@/app/_lib/insights";
 
 export const metadata: Metadata = {
   title: "Insights",
@@ -21,7 +21,11 @@ const futureTopics = [
   "Why Good Businesses Sometimes Look Smaller Than They Are",
 ];
 
-export default function InsightsPage() {
+export default async function InsightsPage() {
+  /* From Sanity when it is configured, from app/_lib/insights.ts when it is
+     not. See ADR-007. */
+  const insights = await getInsights();
+
   return (
     <>
       <PageIntro
