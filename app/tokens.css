@@ -51,6 +51,13 @@
   --text-display-xl: clamp(5rem, 3rem + 8vw, 10rem);
   --text-display-xl--line-height: 1;
   --text-display-xl--letter-spacing: -0.02em;
+  /* The hero's introductory paragraph. It was Tailwind's fixed `text-5xl`:
+     48px with a line height of 1, which on a phone is about fifteen cramped
+     lines. Fluid from 28px at 375px to 48px at 1024px, and the line height
+     loosens from 1 to 1.2 as the text gets smaller, as a length so it can
+     ramp too. From 1024px up, both are exactly what `text-5xl` gave. */
+  --text-intro: clamp(1.75rem, 1.028rem + 3.082vw, 3rem);
+  --text-intro--line-height: clamp(2.1rem, 1.58rem + 2.219vw, 3rem);
   --text-display: clamp(3rem, 2.16rem + 3.59vw, 5.75rem);
   --text-display--line-height: 1;
   --text-display--letter-spacing: -0.01em;
@@ -88,13 +95,22 @@
   --text-accent-sm--line-height: 1.4;
   --text-accent-md: 1.5rem;
   --text-accent-md--line-height: 1.35;
-  --text-accent-lg: 2rem;
+  /* The three large accent sizes were fixed, and a fixed 32, 44 or 60px is a
+     lot on a phone: section titles, the Case Study paragraph, the service
+     descriptions and the situation-card questions all use them. Each is now
+     fluid. It reaches its old fixed size at 1024px and stays there, so every
+     desktop width renders exactly as before, and only smaller screens scale
+     down. The ramp runs from 375px to 1024px:
+       accent-lg   24px -> 32px
+       accent-xl   32px -> 44px
+       accent-2xl  40px -> 60px */
+  --text-accent-lg: clamp(1.5rem, 1.211rem + 1.233vw, 2rem);
   --text-accent-lg--line-height: 1.3;
   --text-accent-lg--letter-spacing: 0.005em;
-  --text-accent-xl: 2.75rem;
+  --text-accent-xl: clamp(2rem, 1.567rem + 1.849vw, 2.75rem);
   --text-accent-xl--line-height: 1.25;
   --text-accent-xl--letter-spacing: 0.01em;
-  --text-accent-2xl: 3.75rem;
+  --text-accent-2xl: clamp(2.5rem, 1.778rem + 3.082vw, 3.75rem);
   --text-accent-2xl--line-height: 1.15;
   --text-accent-2xl--letter-spacing: 0.01em;
 

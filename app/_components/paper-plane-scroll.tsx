@@ -57,14 +57,22 @@ import { usePaperPlaneFlight } from "@/app/_lib/use-paper-plane-flight";
  */
 
 /**
- * Plane size, as a multiple of its own artwork.
+ * Plane size, as a multiple of its own artwork, per screen width.
  *
  * Applied inside the path's coordinate system, so it is a fraction of a
- * 6798-unit-wide space rather than of the screen. At 0.5 the plane is 365 of
- * those units, which lands near 75px on a 1400px-wide layer — where 0.18 gave
- * about 27px and read as a speck.
+ * 6798-unit-wide space rather than of the screen, and the plane shrinks with
+ * the screen. At 0.5 it is 365 of those units: about 100px across on a 1440px
+ * screen, but only 26px on a 375px phone, where it read as a speck. So phones
+ * get 1 (about 52px at 375px) and small tablets 0.75, and from `md` up it
+ * stays 0.5.
+ *
+ * Set as a CSS variable, because a `transform` attribute cannot change with the
+ * screen width. A breakpoint change resizes the window, ScrollTrigger refreshes,
+ * and `invalidateOnRefresh` re-measures the plane, so it stays centred on its
+ * path at the new size.
  */
-const PLANE_SCALE = 0.5;
+const PLANE_SCALE =
+  "[--plane-scale:1] sm:[--plane-scale:0.75] md:[--plane-scale:0.5]";
 
 /**
  * How far ABOVE its host section the flight layer reaches.
@@ -182,7 +190,11 @@ export default function PaperPlaneScroll() {
           overwrite each other.
         */}
         <g ref={planeRef}>
-          <g transform={`scale(${PLANE_SCALE})`}>
+          {/* Scaled from the top-left corner, as a `transform` attribute
+              would be. */}
+          <g
+            className={`origin-top-left [transform:scale(var(--plane-scale))] ${PLANE_SCALE}`}
+          >
             <path
               fillRule="evenodd"
               clipRule="evenodd"

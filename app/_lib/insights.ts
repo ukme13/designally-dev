@@ -41,9 +41,14 @@ export type Insight = {
   summary: string;
   /** Shown in the homepage's thinking section. */
   featuredOnHome: boolean;
-  /** The card's colour preset. The static list uses the default. */
+  /** The card's colour preset, one of app/_lib/swatches.ts. */
   colour: Swatch;
-  /** Only insights from Sanity have these three. */
+  /**
+   * When it was published, as an ISO date-time from Sanity. The static list's
+   * articles are planned, not written, so they have none, and none is made up.
+   */
+  publishedAt?: string;
+  /** Only insights from Sanity have a slug or a photo. */
   slug?: string;
   image?: InsightImage;
   /**
@@ -55,11 +60,23 @@ export type Insight = {
 };
 
 /**
+ * The owner's stencils, in public/shapes/: twelve 4:3 Figma exports on a
+ * 700 x 524 frame, copied unchanged. Each shape sits in the central 400 x 400
+ * square, so the card's colour shows around it. Same-origin, so they are used
+ * as masks directly rather than fetched and inlined. Once the Studio exists,
+ * these twelve are the seed for its Shape library.
+ */
+const STENCIL = (n: string) => `/shapes/stencil-${n}.svg`;
+
+/**
  * The static list: the fallback, and the seed content for the first import
  * into Sanity.
  *
  * The recommended launch set from docs/specs/HOMEPAGE.md. These articles are
- * planned, not written, so nothing links to them yet.
+ * planned, not written, so nothing links to them yet, and none has a publish
+ * date or a photo. Each card shows its stencil as a solid graphic: the clover
+ * (07), the pinwheel (04) and the flower (10), on three different presets, so
+ * the design can be judged on each kind of surface.
  */
 export const staticInsights: Insight[] = [
   {
@@ -68,7 +85,8 @@ export const staticInsights: Insight[] = [
     summary:
       "The signs that a business has moved forward while its brand has stayed behind.",
     featuredOnHome: true,
-    colour: DEFAULT_SWATCH,
+    colour: "orange",
+    shape: STENCIL("07"),
   },
   {
     topic: "Brand Strategy",
@@ -76,7 +94,8 @@ export const staticInsights: Insight[] = [
     summary:
       "What each one does, how they work together, and what your business needs first.",
     featuredOnHome: true,
-    colour: DEFAULT_SWATCH,
+    colour: "dark",
+    shape: STENCIL("04"),
   },
   {
     topic: "Business & Brand",
@@ -84,7 +103,8 @@ export const staticInsights: Insight[] = [
     summary:
       "How to protect what matters while preparing the brand for its next generation.",
     featuredOnHome: true,
-    colour: DEFAULT_SWATCH,
+    colour: "surface-raised",
+    shape: STENCIL("10"),
   },
 ];
 
@@ -107,6 +127,7 @@ const FIELDS = `{
   "slug": slug.current,
   summary,
   "topic": topic->title,
+  publishedAt,
   featuredOnHome,
   colour,
   featuredImage{ asset, hotspot, crop, alt, decorative },
@@ -124,6 +145,7 @@ type SanityInsight = {
   slug?: string | null;
   summary?: string | null;
   topic?: string | null;
+  publishedAt?: string | null;
   featuredOnHome?: boolean | null;
   colour?: string | null;
   featuredImage?: {
@@ -167,6 +189,7 @@ function toInsight(row: SanityInsight): Insight[] {
       title: row.title,
       summary: row.summary,
       featuredOnHome: row.featuredOnHome ?? false,
+      publishedAt: row.publishedAt ?? undefined,
       colour: isSwatch(row.colour) ? row.colour : DEFAULT_SWATCH,
       slug: row.slug ?? undefined,
       image,

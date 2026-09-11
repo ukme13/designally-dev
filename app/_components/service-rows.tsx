@@ -225,17 +225,15 @@ export default function ServiceRows({
                   />
                 )}
 
-                {/* Stuck to the image's bottom-right corner, hanging a little
-                    past its right edge. Dark ink, not the section's white: on
-                    the Websites row it sits on the illustration's bright
-                    yellow, where white text all but disappears. The dark ink
-                    reads on the orange past the edge too.
+                {/* Stuck to the image's bottom-left corner, hanging 8px past
+                    its left edge. Dark ink, not the section's white: on the
+                    Websites row it sits on the illustration's bright yellow,
+                    where white text all but disappears.
 
-                    Hanging past the edge puts it in the page gutter, which is
-                    only 24px on a phone, so check a narrow screen for sideways
-                    scrolling. */}
+                    On a phone the image's left edge sits on the 24px page
+                    gutter, so an 8px overhang stays inside the screen. */}
                 {service.slug === STICKER_SLUG ? (
-                  <ConvoSticker className="absolute -left-12 -bottom-6 font-medium text-text-primary/80" />
+                  <ConvoSticker className="absolute -left-2 -bottom-6 font-medium text-text-primary/80" />
                 ) : null}
               </div>
             </div>

@@ -60,7 +60,7 @@ import { useShowcaseDrift } from "@/app/_lib/use-showcase-drift";
 const SEQUENCES = 3;
 
 /** Card height. Widths follow each image. */
-const HEIGHT = "h-120 md:h-140 xl:h-170";
+const HEIGHT = "h-80 md:h-140 xl:h-170";
 /* Gap between cards. The `pe-*` values MUST match the `gap-*` ones — see the
    note on the seam above. */
 const GAP = "gap-4 pe-4 md:gap-6 md:pe-6";

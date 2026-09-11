@@ -277,8 +277,14 @@ remain on the brief's "evidence needed before launch" list.
 
 - **Sanity, or any content platform.** See `ADR-002`. ADR-007 is accepted. The
   site's Sanity client is wired up in `app/_lib/insights.ts` and falls back to
-  the static list when Sanity isn't configured. The Studio, the webhook route
-  and the shape-masked cards are not built yet.
+  the static list when Sanity isn't configured. The cards are built on the
+  fallback data (`insight-card.tsx`):
+  - a 4:3 picture cut by one of the owner's twelve stencils in `public/shapes/`;
+  - the four colour presets;
+  - a short publish date;
+  - a 2-line summary with an arrow in a 44px circle.
+
+  The Studio and the webhook route are not built yet.
 - Project detail pages under `/works/<slug>/`.
 - Insight article pages under `/insights/<slug>/`.
 - Thai content and the `/th/` route tree. `IBM Plex Sans Thai` is loaded and a
@@ -324,8 +330,18 @@ remain on the brief's "evidence needed before launch" list.
   2026, but still needs the owner's approval. The five service descriptions
   are no longer among them — they were reviewed against both content guides on
   10 September 2026.
-- The Insights section still uses the older `col-span-3` / `9` layout rather
-  than the 1-4 / 7-12 grid the other four share. Services now shares it.
+- **The homepage insight cards are no longer marked as drafts.** The owner
+  removed the note on 11 September 2026. The three cards are planned articles,
+  not written ones. Before launch, each is either written and linked or
+  replaced by an approved insight from Sanity. **Launch check.**
+- **The insight cards show an arrow but are not links.** There is no article
+  page to link to yet. When `/insights/<slug>/` exists, make the whole card the
+  link and give it a hover state.
+- **White text on the orange insight card fails WCAG AA for small text**
+  (3.1:1). It is the owner's choice. The title passes as large text; the topic,
+  date and summary do not. Dark ink (5.2:1) would pass. See ADR-007.
+- The Insights section now uses `SectionTitle`, so every homepage section
+  shares the same title grid.
 - **The floating logo disappears for a moment at both pixel wipes.** See the
   known gap under Adaptive header logo tone.
 - **The showcase row has no pause control.** It moves whenever the page is not
@@ -367,6 +383,14 @@ several of the numbers are first guesses: the cards' `CARD_DURATION` and
 cursor's follow lag. The paper plane in particular has never been watched — its
 path is letterboxed inside a layer three screens tall, and whether the band
 lands where it should is a visual question.
+
+Added on 11 September, and not yet watched:
+- the plane's larger phone sizes (1 on phones, 0.75 from 640px);
+- the fluid type sizes below 1024px;
+- the 320px loop cards on phones;
+- the insight cards' stencils, 2-line summaries and 44px arrow circle.
+
+Desktop type was checked by calculation to be unchanged.
 
 ## Next recommended task
 

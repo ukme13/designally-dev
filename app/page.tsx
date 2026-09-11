@@ -12,11 +12,11 @@ import ScrollGradientText from "@/app/_components/scroll-gradient-text";
 import ClientLogoStrip from "@/app/_components/client-logo-strip";
 import CtaRow from "@/app/_components/cta-row";
 import CountUp from "@/app/_components/count-up";
+import InsightCard from "@/app/_components/insight-card";
 import SectionTitle from "@/app/_components/section-title";
 import ServiceRows from "@/app/_components/service-rows";
 import ShowcaseLoop from "@/app/_components/showcase-loop";
 import Showreel from "@/app/_components/showreel";
-import TextLink from "@/app/_components/text-link";
 import { getFeaturedInsights } from "@/app/_lib/insights";
 import { services } from "@/app/_lib/services";
 import { situations } from "@/app/_lib/situations";
@@ -43,21 +43,30 @@ export const metadata: Metadata = {
 async function FeaturedInsightCards() {
   const featuredInsights = await getFeaturedInsights();
 
-  return featuredInsights.map((insight, index) => (
-    <article
-      key={insight.title}
-      className="flex min-h-96 flex-col rounded-md border border-border-default p-7"
-    >
-      <div className="flex items-center justify-between text-xs tracking-label text-text-muted uppercase">
-        <span>{insight.topic}</span>
-        <span>{String(index + 1).padStart(2, "0")}</span>
-      </div>
-      <h3 className="mt-14 type-h1-alt text-text-primary">{insight.title}</h3>
-      <p className="mt-auto pt-8 type-small text-text-secondary">
-        {insight.summary}
-      </p>
-    </article>
+  return featuredInsights.map((insight) => (
+    <InsightCard key={insight.title} insight={insight} />
   ));
+}
+
+/**
+ * "Explore insights", as the compact band "See how we work" uses.
+ *
+ * Rendered in two places, under the Insights note on desktop and after the
+ * cards when the layout stacks, with `hidden lg:block` and `lg:hidden` on
+ * their wrappers. Only one is ever displayed, so screen readers and the
+ * keyboard meet a single link. One definition, so the two can't drift apart.
+ * The visibility classes sit on the wrappers, not the band: its own `block`
+ * would fight a `hidden` on the same element.
+ */
+function ExploreInsights() {
+  return (
+    <CtaRow
+      href="/insights/"
+      label="Explore insights"
+      size="compact"
+      className="w-full"
+    />
+  );
 }
 
 export default function Home() {
@@ -236,7 +245,7 @@ export default function Home() {
               />
               <ScrollGradientText
                 text="Good businesses are not always seen for what they truly are. We help businesses create, grow, and transform through brand strategy, identity, digital experiences, and creative execution."
-                className="max-w-text text-text-on-accent font-body text-5xl text-center"
+                className="max-w-text text-text-on-accent font-body text-intro text-center"
               />
             </div>
           </section>
@@ -690,24 +699,28 @@ export default function Home() {
             </Fragment>
           }
           note={
-            <p className="text-accent-lg">
-              Useful thinking for important brand decisions: when it is time
-              to rebrand, whether strategy or identity comes first, and how to
-              change without losing what people already trust. Plain answers,
-              drawn from our own work.
-            </p>
+            <>
+              <p className="text-accent-lg">
+                Useful thinking for important brand decisions: when it is time
+                to rebrand, whether strategy or identity comes first, and how
+                to change without losing what people already trust. Plain
+                answers, drawn from our own work.
+              </p>
+              {/* Desktop: the link sits under this note, as "View selected
+                  work" does under the Case Study's. */}
+              <div className="hidden w-full lg:block">
+                <ExploreInsights />
+              </div>
+            </>
           }
         />
         <div className="mx-auto w-full max-w-page px-gutter-mobile md:px-gutter-tablet xl:px-gutter-desktop">
           <div className="mt-16 grid gap-6 md:grid-cols-3">
             <FeaturedInsightCards />
           </div>
-          <div className="mt-8 flex flex-wrap items-center justify-between gap-6">
-            <p className="max-w-text type-small text-text-secondary">
-              These are recommended article drafts. Links will be added when
-              reviewed articles are ready.
-            </p>
-            <TextLink href="/insights/" label="Explore insights" />
+          {/* Stacked layouts: the same link, after the cards instead. */}
+          <div className="mt-10 lg:hidden">
+            <ExploreInsights />
           </div>
         </div>
       </section>

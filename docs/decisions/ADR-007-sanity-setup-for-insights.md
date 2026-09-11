@@ -215,14 +215,20 @@ Settled on 11 September 2026, when the ADR was accepted.
 
    | Name | Surface token | Ink | Contrast |
    | --- | --- | --- | --- |
-   | `orange` | `primary-300` #f56341 | `--ink-primary` #212121 | 5.2:1 |
-   | `cream` | `surface-base` #faf9f5 | `--ink-primary` | 15.3:1 |
-   | `dark` | `surface-inverse` #11100e | `--ink-on-accent` #ffffff | 19.0:1 |
+   | `orange` | `primary-300` #f56341 | `--ink-on-accent` #ffffff | 3.1:1 |
+   | `cream` | `surface-base` #faf9f5 | `--ink-primary` #212121 | 15.3:1 |
+   | `dark` | `surface-inverse` #11100e | `--ink-on-accent` | 19.0:1 |
    | `surface-raised` | `surface-raised` #ffffff | `--ink-primary` | 16.1:1 |
 
-   Orange takes dark ink on cards. The white the rest of the site sets on
-   orange is 3.1:1, which passes only for large text, and a card's description
-   is not large.
+   **Orange takes white, by the owner's choice (11 Sept 2026), and it fails AA
+   for small text.**
+   - At 3.1:1 it passes for the large title, which needs 3:1.
+   - It fails for the topic, date and summary, which need 4.5:1.
+   - Dark ink (5.2:1) would pass. The card first shipped with it, and the
+     owner changed it to white, accepting the shortfall.
+
+   The shape on an orange card with no photo is white too, matching its text,
+   as on every preset: the shape takes the ink colour.
 3. **Card image proportions: 4:3.** Every shape's viewBox is 4:3, and the site
    asks Sanity for 4:3 crops centred on the editor's focal point.
 4. **Preview of unpublished content:** still deferred.
@@ -237,6 +243,14 @@ Two implementation notes that follow from the approval:
   already caches every read, so Sanity's CDN adds nothing, and skipping it
   avoids relying on how a private dataset is served from it. `published`
   guarantees drafts never reach the site.
+
+## Implementation note: a shape with no photo
+
+Decision 1 has the swatch fill the shape behind the photo and form the card's
+background. With no photo, a shape in the background's own colour cannot be
+seen. The card therefore fills a photo-less shape with the swatch's ink colour,
+so it shows as a solid graphic. **Confirmed by the owner on 11 September
+2026.** It is one `fill` value per swatch in `app/_lib/swatches.ts`.
 
 ## Research record
 

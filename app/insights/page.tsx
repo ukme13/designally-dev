@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import DraftNotice from "@/app/_components/draft-notice";
+import InsightCard from "@/app/_components/insight-card";
 import PageIntro from "@/app/_components/page-intro";
 import Section from "@/app/_components/section";
 import { getInsights } from "@/app/_lib/insights";
@@ -43,22 +44,8 @@ export default async function InsightsPage() {
         </DraftNotice>
 
         <div className="mt-16 grid gap-6 md:grid-cols-3">
-          {insights.map((article, index) => (
-            <article
-              key={article.title}
-              className="flex min-h-96 flex-col rounded-md border border-border-default p-7"
-            >
-              <div className="flex items-center justify-between text-xs tracking-label text-text-muted uppercase">
-                <span>{article.topic}</span>
-                <span>{String(index + 1).padStart(2, "0")}</span>
-              </div>
-              <h2 className="mt-14 type-h1-alt text-text-primary">
-                {article.title}
-              </h2>
-              <p className="mt-auto pt-8 type-small text-text-secondary">
-                {article.summary}
-              </p>
-            </article>
+          {insights.map((article) => (
+            <InsightCard key={article.title} insight={article} heading="h2" />
           ))}
         </div>
       </Section>
