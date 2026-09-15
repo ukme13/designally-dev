@@ -5,19 +5,13 @@ import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import HoverCursor from "@/app/_components/hover-cursor";
 import { subscribeShowreelCue } from "@/app/_lib/intro";
 import { useShowreelEntrance, type RevealDiagnostics } from "@/app/_lib/use-showreel-entrance";
+import { useShowreelGrid } from "@/app/_lib/use-showreel-grid";
 import { useShowreelStrip } from "@/app/_lib/use-showreel-strip";
 import {
   ADVANCE_FALLBACK_MS,
   LOAD_MARGIN,
-  PIXEL_COMPACT_MAX_PX,
   PIXEL_COVER_MAX_MS,
-  PIXEL_COLUMNS,
-  PIXEL_ROWS,
-  PIXEL_TARGET_CELLS,
-  PIXEL_TARGET_CELLS_COMPACT,
-  pixelGrid,
   SHOWREEL,
-  type PixelGrid,
   VISIBLE_RATIO,
 } from "@/app/_lib/showreel";
 
@@ -129,19 +123,6 @@ export default function Showreel() {
   const [captionShown, setCaptionShown] = useState(false);
   /** True while the outgoing frame is being held under an incoming film. */
   const [holding, setHolding] = useState(false);
-  /**
-   * The mask arrangement, chosen from the rectangle's real shape.
-   *
-   * 16 x 9 until something has been measured, which is also what a 16:9 box
-   * resolves to — so the common case never changes after the first frame. On
-   * mobile the rectangle fills the screen height instead, and a portrait box
-   * needs a portrait grid or its cells stop being square.
-   */
-  const [grid, setGrid] = useState<PixelGrid>({
-    columns: PIXEL_COLUMNS,
-    rows: PIXEL_ROWS,
-  });
-
   const project = SHOWREEL[index];
 
   /*
@@ -259,82 +240,12 @@ export default function Showreel() {
   });
 
   /*
-    Keep the grid matched to the rectangle's shape.
-
-    A ResizeObserver rather than a media query: the box is not simply "portrait
-    below md". Its width comes from the page grid and its height from the
-    viewport, so the ratio moves continuously with both — and an orientation
-    change on a phone crosses the whole range at once.
-
-    Observing the position wrapper, which is always mounted, rather than the
-    mask, which comes and goes with each entrance.
+    The mask arrangement, measured from the rectangle itself rather than from a
+    breakpoint. `showPixels` goes in so the hook can hold a re-arrangement back
+    while a reveal is in flight and apply it the moment one ends — see
+    `use-showreel-grid.ts`, which carries the reasoning for both halves.
   */
-  /*
-    True while a reveal is actually running, mirrored into a ref so the
-    ResizeObserver below can read it without being torn down and rebuilt every
-    time the flag changes. Written from an effect rather than during render —
-    the latter is what `react-hooks/set-state-in-effect` and its neighbours
-    exist to discourage.
-  */
-  const revealRunningRef = useRef(false);
-  useEffect(() => {
-    revealRunningRef.current = showPixels;
-  }, [showPixels]);
-
-  useEffect(() => {
-    const box = boxRef.current;
-    if (!box) return;
-
-    const observer = new ResizeObserver(([entry]) => {
-      /*
-        **Never re-lay the grid under a running reveal.**
-
-        `pixelGrid` searches for the squarest arrangement, so it is knife-edge
-        sensitive: a ONE PIXEL change in width or height can flip 18x8 to 19x8.
-        And `grid` is both in the entrance effect's dependency array and part of
-        the canvas `key`, so a change mid-flight remounted the canvas and
-        re-ran the effect — `elapsed` reset to zero and the same clip revealed
-        a second time. Reported on desktop, 15 September 2026.
-
-        There was no large layout event to blame and there did not need to be;
-        any sub-pixel settle inside the ~2s reveal window was enough.
-
-        The grid only describes the reveal that is currently running. Changing
-        it mid-reveal cannot improve that reveal, and afterwards the canvas
-        unmounts anyway — so the value only ever matters for the NEXT one, which
-        picks up the current shape when it arms.
-
-        Trade-off, deliberately accepted: if the box genuinely changes shape
-        mid-reveal — a window drag — the cells stay laid out for the old aspect
-        for the rest of that reveal and are slightly off-square. A momentarily
-        imperfect grid beats the reveal restarting from the beginning.
-      */
-      if (revealRunningRef.current) return;
-
-      const { width, height } = entry.contentRect;
-      if (!width || !height) return;
-      /* Fewer, bigger cells on a small rectangle. 144 of them in the ~337px
-         box a phone gives made each dot 25px with 3px between it and its
-         neighbour, so they merged and the reveal read as a fade rather than as
-         pixels — see PIXEL_TARGET_CELLS_COMPACT. Chosen from the box's real
-         width, like the arrangement itself, rather than from a breakpoint. */
-      const next = pixelGrid(
-        width / height,
-        width < PIXEL_COMPACT_MAX_PX
-          ? PIXEL_TARGET_CELLS_COMPACT
-          : PIXEL_TARGET_CELLS,
-      );
-      /* Only on a real change: this fires on every resize frame, and a new
-         object each time would remount the mask mid-drag. */
-      setGrid((current) =>
-        current.columns === next.columns && current.rows === next.rows
-          ? current
-          : next,
-      );
-    });
-    observer.observe(box);
-    return () => observer.disconnect();
-  }, []);
+  const grid = useShowreelGrid(boxRef, showPixels);
 
 
   /* Read live, so changing the system setting does not need a reload. */
@@ -710,7 +621,8 @@ export default function Showreel() {
           letterboxed or stretched. It is the frame that changes shape, not the
           film.
 
-          The mask grid follows on its own; see the ResizeObserver above and
+          The mask grid follows on its own: this element is what
+          `useShowreelGrid` observes — see `use-showreel-grid.ts` and
           `pixelGrid`.
         */}
         <div ref={boxRef} className="relative h-[calc(100svh-var(--showreel-reserve))] w-full">
@@ -827,8 +739,8 @@ export default function Showreel() {
               /* Keyed on the PROJECT only. The grid used to be in here too, so
                  that a re-arrangement started from a blank canvas — but
                  `pixelGrid` can flip on a one-pixel change, which remounted the
-                 canvas mid-reveal and restarted it. The observer above no
-                 longer re-lays the grid while a reveal is running, so there is
+                 canvas mid-reveal and restarted it. `useShowreelGrid` now holds
+                 a re-arrangement back until the reveal ends, so there is
                  nothing left for this key to guard against. */
               key={index}
               ref={revealRef}
