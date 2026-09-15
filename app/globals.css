@@ -33,20 +33,33 @@
   sticky element occupying the toolbar's own band (section 10) and a fixed layer
   surviving its closing transform (section 13).
 
-  Does not work: the bottom overscroll still bounced cream. `<html>` carries
-  `h-full`, so the ROOT ELEMENT'S BOX IS ONE VIEWPORT TALL, not the document.
-  The canvas rules paint the root's background across the whole canvas but size
-  and position it to the root's own box, and with `background-repeat` at its
-  default the gradient TILES in viewport-height bands. Which half of a tile
-  lands at the end of the document depends on that document's height — so the
-  bounce colour is arbitrary per route, not merely wrong. That is worse than a
-  consistent cream, and why this was reverted rather than kept.
+  Does not work: the bottom overscroll still bounced cream.
 
-  **If you want to solve it properly**, the root's box has to span the document:
-  drop `h-full` from `<html>`, and change `<body>`'s `min-h-full` to `min-h-svh`
-  in the same edit — a percentage min-height resolves against the parent's
-  height, so against an auto-height root it would collapse and short pages would
-  lose their sticky footer.
+  **THE ROOT-SPANNING ROUTE WAS TRIED ON 15 SEPTEMBER 2026 AND IT FAILS. Do not
+  try it a third time.** `h-full` was dropped from `<html>` and `<body>` moved
+  to `min-h-svh` in the same edit, so the root's box spanned the document and
+  the gradient sized to the whole of it rather than tiling. The device showed
+  the bounce UNCHANGED, and the change was reverted.
+
+  An earlier version of this note blamed the tiling — `h-full` making the root's
+  box one viewport tall, so the gradient repeated in viewport-height bands and
+  an arbitrary half-tile landed at the end of the document. That is accurate CSS
+  and it is NOT why this fails, which is exactly why it was worth disproving:
+  the reasoning is sound enough to cost someone another pass.
+
+  Safari never reads the root's background for that edge at ANY root height. It
+  samples a flat `background-color` and falls back to `<body>`; a gradient is a
+  `background-image`, and the `background` shorthand sets the colour component to
+  `transparent`, so `:root` offers nothing to sample. The only flat colour in
+  the document is `<body>`'s `--surface-base` — that is what bounces.
+
+  The proof is a natural experiment nobody designed. On `/_not-found` there is
+  no custom `not-found.tsx`, so Next's built-in page injects
+  `@media (prefers-color-scheme:dark){body{background:#000}}`. On a dark-mode
+  phone that route's bounce goes BLACK, following `<body>`, while a gradient on
+  `:root` sits on the same page and is ignored. If canvas propagation governed,
+  a root background would suppress the body's and the bounce could not have
+  followed it. See the 15 September 2026 update, section 15.
 
   Two routes that CANNOT work, so nobody spends time on them:
 
@@ -62,7 +75,13 @@
   own.
 
   Consequence, recorded plainly: the bottom overscroll bounces cream rather than
-  the footer's orange. Accepted, not outstanding.
+  the footer's orange. Accepted, not outstanding — and it is a TRADE, not a
+  shortfall. The edge colour and the frosted toolbar are fed by the same
+  sampling rule: one `<body>` colour serves both edges, so orange at the bottom
+  is orange at the top on every route, and the only way to colour one edge alone
+  is a `fixed`/`sticky` element in that edge's band — which is precisely what
+  turns the toolbar solid (sections 10 and 13). Cream is the price of the
+  frosted material, paid knowingly.
 */
 
 * {
