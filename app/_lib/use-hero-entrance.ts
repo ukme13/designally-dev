@@ -126,7 +126,31 @@ export function useHeroEntrance({
       markShowreelCue();
     };
 
-    if (!shouldPlayIntro(pathname)) {
+    /*
+      Two reasons to skip straight to the finished state.
+
+      `shouldPlayIntro` is the original one: an internal navigation, where the
+      hero is already behind the reader.
+
+      **Below `lg` is the second, added 15 September 2026.** The entrance
+      animates the three statement lines, and those lines are no longer
+      rendered on a phone — see STATEMENT_BLOCK in hero-intro.tsx. Playing a
+      timeline against elements that are `display: none`, while holding the
+      scroll lock and delaying the navbar for nearly four seconds, buys nothing
+      and costs the reader the whole opening of the page.
+
+      Routing through `finish()` rather than simply returning is the important
+      part: it raises `markShowreelCue()`, which the showreel's pixel reveal
+      waits on. Return early without it and the film sits invisible until its
+      own 6.9s watchdog fires.
+
+      64rem must stay in step with the `lg:` breakpoint used by the layout in
+      page.tsx and by STATEMENT_BLOCK, and with the pre-paint script in
+      layout.tsx. If they disagree there is a band of widths where the script
+      hides the header for an intro that never plays.
+    */
+    const DESKTOP = "(min-width: 64rem)";
+    if (!shouldPlayIntro(pathname) || !window.matchMedia(DESKTOP).matches) {
       finish();
       return;
     }

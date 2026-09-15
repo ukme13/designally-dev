@@ -79,7 +79,7 @@ export default function Home() {
         the section after it. The gradient is the stage's first child and stays
         fixed to the top of the viewport while the rest scrolls over it.
 
-        The gradient takes its own 100svh of flow, and the content below is
+        The gradient takes its own 100lvh of flow, and the content below is
         pulled back over it by exactly that much. A sticky element stays pinned
         for (container height - its own height) of scrolling, so the stage
         measures two viewports and the gradient is pinned for one — the length
@@ -87,7 +87,7 @@ export default function Home() {
 
         The negative margin is on the CONTENT, never on the sticky element
         itself. Sticky constrains an element's MARGIN box to its containing
-        block, not its border box: a `margin-bottom: -100svh` on the gradient
+        block, not its border box: a `margin-bottom: -100lvh` on the gradient
         zeroes its margin box and lets the visible box overhang the stage by a
         full viewport, so it carries on travelling behind the section below and
         the join lands on a mid-gradient colour instead of the end stop. That
@@ -119,12 +119,126 @@ export default function Home() {
            header sits over for this whole stage, hero and statement lines
            alike. */
         data-header-tone="light"
-        className="relative -mt-20 lg:-mt-section-tablet"
+        /*
+          `bg-action-primary` is the hero's solid base, and it lives HERE
+          rather than inside HeroIntro as of 15 September 2026.
+
+          Two reasons, and the second is the one that shows:
+
+          1. It is out of the `sticky` subtree. This element is
+             `position: relative`, which no documented Safari 26 rule treats as
+             a toolbar-tint sampling candidate — where an opaque layer inside
+             the pinned box was at least arguable.
+          2. It covers the WHOLE stage, not one viewport. The sticky gradient
+             is `h-lvh`; once it unpins, everything below it used to fall
+             through to `<body>`, which is cream — the band caught on a fast
+             flick. Now it falls through to orange, which is the gradient's own
+             end stop and the colour of the section that follows.
+
+          Nothing about the entrance changed: the mask still uncovers the
+          gradient and orange is still what sits beneath it.
+        */
+        className="relative -mt-20 bg-action-primary lg:-mt-section-tablet"
       >
-        {/* The pinned gradient and the three statement lines. Contributes no
-            height of its own — see -mb-[100svh] above — so the hero below starts at
-            the top of the stage and overlays it. */}
-        <div aria-hidden="true" className="sticky top-0 h-svh">
+        {/* The pinned gradient and the three statement lines.
+
+            `lvh`, the LARGE viewport height — not `svh`, and not `dvh`.
+
+            All three cancel against the matching negative margin below, so the
+            stage's height and the pin arithmetic are identical whichever is
+            used. What differs is whether the box can ever be SHORTER than the
+            screen, and nothing is painted behind it: `HeroIntro` is
+            `absolute inset-0` inside this box, the stage itself has no
+            background, and `<body>` is cream. A box that falls even slightly
+            short therefore shows a cream band at the foot of the screen.
+
+            `svh` is the small height, so it is short whenever Safari's toolbar
+            is collapsed — that was the original band. `dvh` equals the visible
+            viewport, which is right at rest but still comes up short in
+            transit, while Safari animates its floating toolbar or when a `dvh`
+            update lands a frame behind the scroll; the band survived that
+            change. `lvh` is the maximum, so the box is always at least the
+            visible area and cannot fall short under any toolbar state.
+
+            The cost is at the other end: with the toolbar showing, the
+            gradient's bottom stop sits just below the fold, so the visible
+            bottom is a touch less orange than the stop itself. That is a
+            colour nuance; the alternative is a cream band. */}
+        {/*
+          `100lvh - 8px`, NOT `100lvh` — and those 8px are load-bearing.
+
+          **Confirmed on device, 15 September 2026.** `/` lost Safari 26's
+          frosted toolbar the instant scrolling began, while `/about/` kept it
+          for the whole page. The built output made that a controlled
+          comparison: the four `fixed` elements are identical on both routes,
+          and the only difference is that `/` has ONE sticky element and every
+          other route has none. Holding this box clear of the bottom viewport
+          edge restored the native frosted material through scroll — so an
+          ACTIVE sticky element reaching that edge is what flips the toolbar to
+          solid.
+
+          **Do not set this to 0, and do not "simplify" it back to `h-lvh`.**
+          That is the bug, and it looks like a redundant calc until you test it
+          on a phone.
+
+          **The measured bracket, all on an iPhone 17 / iOS 26:**
+
+            0px  (`h-lvh`)            solid
+            8px                       solid
+            8px + a `:root` gradient  solid
+            24px                      solid, from scrollY = 0
+            96px (`6rem`)             FROSTED
+
+          So the published ~3px edge-proximity figure does not describe this
+          behaviour at all. What fits is that Safari's floating bottom toolbar
+          occupies roughly 56-88px of the viewport, and what flips it to solid
+          is this box extending into the band BEHIND the toolbar — not its
+          distance from the edge. The threshold is the toolbar's own height.
+
+          **So the inset is back at the confirmed-good 6rem, and the clipping it
+          used to cause is solved structurally instead.** Walking the number up
+          through 40, 56, 72 would have found the threshold and re-introduced
+          the cropped lettering at the same time — the two constraints move
+          together, so no single number satisfies both.
+
+          `HeroIntro` is no longer sized by this box. It is `absolute inset-x-0
+          top-0 h-lvh`, so it renders a FULL viewport tall and overflows this
+          box's bottom by 96px; this box has no overflow rule, so that overflow
+          is visible, and HeroIntro's own `overflow-hidden` still frames the
+          statement lines against a 100lvh box exactly as before any of these
+          insets existed. The layout box Safari samples clears the toolbar; the
+          gradient and the lettering keep their full height.
+
+          **This rests on Safari sampling the BORDER BOX, not painted bounds.**
+          If it uses visual overflow, the gradient spilling back down into the
+          toolbar band will re-trigger the solid state.
+
+          **Visually free at the bottom, and only because the stage paints the
+          orange.** `--action-primary` and the gradient's `to-primary-300` both
+          resolve to #f56341, so the gradient finishes short of the fold and
+          meets flat stage orange at a seam that cannot be seen. Before the base
+          moved to the stage, this would have leaked cream `<body>`.
+
+          The paired negative margin below MUST match this value exactly, or the
+          content stops overlapping the pinned box and the whole stage shifts.
+          The stage's own height is unaffected either way — the two cancel.
+        */}
+        {/*
+          **Everything above describes the DESKTOP behaviour.** Below `lg` this
+          box is not sticky at all: it is `relative h-lvh`, a full viewport in
+          normal flow that scrolls away with the page. Nothing is pinned, so
+          nothing reaches the bottom viewport edge, so the whole Safari toolbar
+          problem the inset exists to solve does not arise on a phone — which is
+          why the mobile height is plain `h-lvh` with no arithmetic.
+
+          `relative` is load-bearing: HeroIntro is `absolute inset-x-0 top-0`
+          and needs a positioned ancestor. Without it the gradient would
+          position against the stage instead.
+        */}
+        <div
+          aria-hidden="true"
+          className="relative h-lvh lg:sticky lg:top-0 lg:h-[calc(100lvh-6rem)]"
+        >
           <HeroIntro />
         </div>
 
@@ -132,7 +246,14 @@ export default function Home() {
             makes the two share the stage's first viewport — and it is on this
             wrapper rather than on the gradient for the margin-box reason
             above. */}
-        <div className="mt-[-100svh]">
+        {/* Must cancel the sticky box's height above EXACTLY — `100lvh - 6rem`
+            there, `-100lvh + 6rem` here. If the two drift apart the content
+            stops overlapping the pinned gradient and the stage shifts by the
+            difference. */}
+        {/* Mobile pulls back by the box's full `100lvh`; desktop by the inset
+            height. Each must cancel its own breakpoint's height exactly, or the
+            content stops overlapping the gradient and the stage shifts. */}
+        <div className="mt-[-100lvh] lg:mt-[calc(-100lvh+6rem)]">
           {/* Hero.
             The stage above carries the negative margin now. The top padding
             here puts that space back, so the showreel centres in the area
@@ -187,7 +308,13 @@ export default function Home() {
           {/* `isolate` is for the paper plane below: it confines the plane's
               z-index to this section, so a layer meant to sit over the
               statement cannot also sit over the header. */}
-          <section className="relative isolate flex min-h-svh w-full items-center justify-center">
+          {/* `lg:min-h-svh`, not `min-h-svh`. On desktop this screen is the
+              scroll track the statement lines fly through, so it reserves a
+              full viewport. On mobile those lines are not rendered, so the
+              reservation was an empty screen between the hero and the next
+              section — it now collapses to its own content height and the page
+              continues immediately. */}
+          <section className="relative isolate flex w-full items-center justify-center lg:min-h-svh">
             {/* The paper plane, flying across this section as it scrolls past.
                 Decorative and scroll-linked; it adds no height, taking its box
                 from the section around it. It passes OVER the statement —

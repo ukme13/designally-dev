@@ -169,26 +169,54 @@ export default function HeaderShell({
         on the way up; in normal flow above that, where it scrolls away and the
         floating header takes over.
 
-        Background, below md only: transparent while the page rests at the top,
-        so the homepage gradient runs unbroken behind it, and surface-base once
-        the reader has scrolled and there is content to sit against. From md up,
-        `md:bg-transparent` is inside a media query and so is emitted after both
-        base utilities — tablet and desktop stay transparent either way.
+        **NO BACKGROUND ON THIS ELEMENT — it lives on the row inside.** Moved
+        there on 15 September 2026, and it must not come back.
 
-        One transition covers the slide and the colour. Two utilities would not:
-        `transition-transform` and `transition-colors` both write
-        transition-property, so whichever the stylesheet emits last would be the
-        only one that ran. `translate` is named explicitly because that is the
-        property Tailwind v4's translate-y-* utilities set — `transform` alone
-        would leave the hide-on-scroll with nothing to animate.
+        The background behaviour is unchanged: transparent while the page rests
+        at the top, so the homepage gradient runs unbroken behind it, and
+        surface-base once the reader has scrolled and there is content for the
+        nav to sit against. From md up it stays transparent either way.
+
+        What changed is which element paints it. This one is `position: fixed`
+        at the top edge, and Safari 26 picks its toolbar tint by sampling
+        `background-color` from fixed and sticky elements near a viewport edge.
+        An opaque background appearing here on scroll made the bottom chrome
+        snap to solid white the instant the page moved — confirmed on device:
+        `/` loaded as frosted glass and lost it on the first scroll, while
+        `/about/` kept it, being cream-on-cream where the same switch is
+        invisible.
+
+        **This is the case static HTML cannot show.** The server render is
+        always the at-rest state, so `bg-surface-base` never appears in it and
+        an enumeration of the built markup will always look clean. Verify this
+        one on a device.
+
+        The row inside is `h-20` and full-width on a phone, so it paints exactly
+        the same pixels this element used to.
+
+        The slide stays here and the colour goes with the background, so the two
+        transitions now sit on different elements and cannot overwrite each
+        other's `transition-property`. `translate` is named explicitly because
+        that is the property Tailwind v4's translate-y-* utilities set —
+        `transform` alone would leave the hide-on-scroll with nothing to
+        animate.
       */}
       <header
         data-site-header=""
-        className={`fixed inset-x-0 top-0 z-40 transition-[transform,translate,background-color] duration-300 ease-standard motion-reduce:transition-none md:relative md:translate-y-0 md:bg-transparent ${
+        className={`fixed inset-x-0 top-0 z-40 transition-[transform,translate] duration-300 ease-standard motion-reduce:transition-none md:relative md:translate-y-0 ${
           barHidden ? "-translate-y-full" : "translate-y-0"
-        } ${atTop ? "bg-transparent" : "bg-surface-base"}`}
+        }`}
       >
-        <div className="mx-auto flex h-20 w-full max-w-page items-center justify-between gap-6 px-gutter-mobile md:px-gutter-tablet lg:h-section-tablet xl:px-gutter-desktop">
+        {/* Carries the bar's background, moved off the fixed parent above —
+            see the note there. `w-full` makes this the full screen width on a
+            phone, and `h-20` matches the bar's height, so it paints exactly
+            the surface the header used to. `md:bg-transparent` keeps tablet
+            and desktop clear, as before. */}
+        <div
+          className={`mx-auto flex h-20 w-full max-w-page items-center justify-between gap-6 px-gutter-mobile transition-colors duration-300 ease-standard motion-reduce:transition-none md:bg-transparent md:px-gutter-tablet lg:h-section-tablet xl:px-gutter-desktop ${
+            atTop ? "bg-transparent" : "bg-surface-base"
+          }`}
+        >
           <Link href="/" aria-label="Designally home" className="flex shrink-0 items-center">
             {wordmark}
           </Link>
@@ -298,15 +326,48 @@ export default function HeaderShell({
         aria-modal="true"
         aria-label="Site menu"
         inert={!drawerOpen}
+        data-site-drawer=""
         data-open={drawerOpen ? "" : undefined}
-        /* delay-250 on the way out, so the rows have finished leaving before
-           the panel sweeps up over them; data-open:delay-0 keeps the opening
-           immediate. */
-        className={`group fixed inset-0 z-55 bg-surface-base transition-transform duration-500 delay-250 ease-out data-open:delay-0 motion-reduce:transition-none md:hidden ${
+        /* The slide's timing is no longer expressed here. It moved to the
+           `[data-site-drawer]` rules in app/globals.css on 15 September 2026,
+           so that one rule owns both the slide and the visibility flip —
+           closing still waits 250ms for the rows inside to finish leaving, then
+           sweeps for 500ms; opening is immediate. */
+        /*
+          NO BACKGROUND ON THIS ELEMENT. The cream moved to the inner wrapper
+          below on 15 September 2026, and it must not come back here.
+
+          This is `position: fixed` and full-viewport, so an opaque background
+          here made an off-screen drawer a tint candidate at BOTH edges, on
+          every page, on every phone.
+
+          **That was not the whole story, and the original note here was
+          wrong.** It claimed Safari only samples `background-color`, so moving
+          the cream off this element would settle it. The background has been
+          gone since, and the drawer still locked Safari 26's bottom toolbar to
+          solid the moment it was opened once — reported from device on
+          15 September 2026. So it is the fixed LAYER itself, not its paint: a
+          transform does not release it, and WebKit appears to keep the layer
+          promoted after the first open.
+
+          Hence the `visibility` handling in globals.css keyed on
+          `[data-site-drawer]`. The transition lives there rather than here so
+          one rule owns both the slide and the visibility flip; two owners of
+          `transition-property` would be settled by stylesheet order.
+
+          Painting the inner wrapper instead costs nothing: it is `h-full`
+          inside this box, so it covers exactly the same pixels and the panel
+          looks identical. It is not positioned, so the sampler ignores it, and
+          the slide still belongs to this element alone.
+        */
+        className={`group fixed inset-0 z-55 md:hidden ${
           drawerOpen ? "translate-y-0" : "-translate-y-full"
         }`}
       >
-        <div className="flex h-full flex-col px-gutter-mobile pt-6 pb-10">
+        {/* Carries the drawer's cream, moved off the fixed parent — see the
+            note above. `h-full` fills the fixed box exactly, so this is the
+            same surface it always was. */}
+        <div className="flex h-full flex-col bg-surface-base px-gutter-mobile pt-6 pb-10">
           <div className="flex h-11 items-center justify-between">
             <Link href="/" aria-label="Designally home" className="flex items-center">
               {wordmark}

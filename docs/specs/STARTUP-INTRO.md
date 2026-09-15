@@ -13,7 +13,7 @@ of the hero. They are present in the served HTML and remain on screen after the
 sequence ends. **Only the mask that hides them is temporary.**
 
 **The gradient and the lines now live in a sticky stage, not in the hero
-section.** Since 7 September 2026 they sit in a `sticky top-0 h-svh` layer that
+section.** Since 7 September 2026 they sit in a `sticky top-0 h-lvh` layer that
 spans the hero and the section after it: the gradient stays pinned to the top
 of the viewport for the length of the hero, then releases and travels up with
 the section below so the two leave as one picture. The statement lines gained a

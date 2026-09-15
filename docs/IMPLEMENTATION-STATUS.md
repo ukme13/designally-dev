@@ -107,7 +107,7 @@ Full specification in `docs/specs/SHOWREEL.md`; the reasoning in `ADR-003`.
 
 ### Homepage sticky stage
 
-The hero gradient and the three statement lines sit in a `sticky top-0 h-svh`
+The hero gradient and the three statement lines sit in a `sticky top-0 h-lvh`
 layer spanning the hero and the section after it. The gradient is pinned for
 the length of the hero, then releases and travels up with the section below so
 the two leave as one picture. The statement lines fly upward on scroll, on a

@@ -3,7 +3,11 @@
 Status: rectangle, pixel entrance and auto-advance implemented. Crossfade not
 built — a switch cuts, it does not blend.
 Route: `/` only, inside `#hero`, wrapper `#showreel`
-Updated: 7 September 2026
+Updated: 15 September 2026
+
+**The entrance is painted into a `<canvas>`, not an SVG mask.** It was a CSS
+`mask-image: url(#…)` until 15 September 2026, which does not work on iOS
+Safari — the reveal never drew there at all. See **The pixel reveal** below.
 
 ## What this is
 
@@ -12,16 +16,37 @@ one-time branded entrance: the film materialises out of the page, pixel by
 pixel from the centre outward, each pixel resolving from a circle into a
 square as it arrives.
 
-The rectangle is **masked, not covered**. Until the entrance runs it paints
-nothing at all and the hero's gradient shows straight through it; the mask
-then fills in and the video appears. Nothing is ever painted over the film.
+The rectangle is **revealed, not covered**. Until the entrance runs it paints
+nothing at all and the hero's gradient shows straight through it; the cells
+then fill in and the video appears. Nothing is ever painted over the film.
 
 This replaced an opaque cover that dissolved off the video, along with a
 circle hold and a circle-to-rectangle morph of the container, on 7 September
 2026. See **Why it was inverted**.
 
-The entrance runs **once per page load**. Changing project afterwards does not
-replay it.
+The entrance runs on the first load and on each project change. A repeated
+press on the already active project does nothing.
+
+## Sticky background height
+
+The sticky background uses `100lvh`, paired with a `-100lvh` margin on the
+content wrapper. Their layout contributions cancel, so the stage's height and
+the pin arithmetic are the same whichever viewport unit is used — the unit only
+decides whether the box can be SHORTER than the screen.
+
+That matters because nothing is painted behind it: `HeroIntro` is
+`absolute inset-0` inside the box, the stage has no background, and `<body>` is
+cream. A box that falls short shows a cream band at the foot of the screen.
+`svh` is short whenever the toolbar is collapsed; `dvh` equals the viewport at
+rest but still falls short while Safari animates its floating toolbar. `lvh` is
+the maximum and cannot fall short.
+
+The cost: with the toolbar showing, the gradient's bottom stop sits just below
+the fold, so the visible bottom is slightly less orange than the stop.
+
+Hero content retains its `svh` sizing so the video and caption do not resize
+with toolbar motion. No solid sampling strips or new background colours are
+added. Needs device QA.
 
 ## Placement
 
@@ -43,19 +68,33 @@ fractions of the masked element — so a fixed 16 x 9 grid makes square cells
 only in a 16:9 box. In a portrait box every cell would be a tall rectangle and
 every "circle" an ellipse.
 
-`pixelGrid(aspect)` picks the arrangement that squares them, holding the cell
-count near `PIXEL_TARGET_CELLS` and varying the layout: `columns =
+`pixelGrid(aspect, target)` picks the arrangement that squares them, holding the
+cell count near the target and varying the layout: `columns =
 round(sqrt(cells * aspect))`, rows derived from that, both clamped to 4-32 so a
 sliver mid-resize cannot produce one enormous cell or thousands of invisible
-ones. Measured:
+ones.
 
-| | Box | Grid | Cell | Cell aspect |
-|---|---|---|---|---|
-| iPhone SE | 327x427 | 11x13 | 30x33 | 0.91 |
-| iPhone 14 | 342x604 | 9x16 | 38x38 | 1.01 |
-| Pixel 7 | 364x675 | 9x16 | 40x42 | 0.96 |
-| iPad mini | 688x387 | 16x9 | 43x43 | 1.00 |
-| laptop | 1116x628 | 16x9 | 70x70 | 1.00 |
+**The target is not one number.** `PIXEL_TARGET_CELLS` is 144, but a box
+narrower than `PIXEL_COMPACT_MAX_PX` (480 CSS px, i.e. a phone) uses
+`PIXEL_TARGET_CELLS_COMPACT` — 64. Holding 144 everywhere was wrong and this
+spec used to claim it made the effect "read the same on a phone as on a
+desktop": on a real iPhone it made each cell 28px and the dots merged, so the
+reveal read as a soft fade. See **Cell shape**.
+
+Executed against `pixelGrid` itself, not estimated. Dot is the starting circle
+at `PIXEL_CELL_SCALE`:
+
+| | Box | Target | Grid | Cell | Dot | Cell aspect |
+|---|---|---|---|---|---|---|
+| iPhone (square box) | 337x337 | 64 | 8x8 | 42x42 | 25 | 1.00 |
+| iPhone SE | 327x427 | 64 | 7x9 | 47x47 | 28 | 0.99 |
+| phone, taller box | 390x520 | 64 | 7x9 | 56x58 | 33 | 0.96 |
+| iPad mini | 688x387 | 144 | 16x9 | 43x43 | 26 | 1.00 |
+| laptop | 1116x628 | 144 | 16x9 | 70x70 | 42 | 1.00 |
+| desktop | 1400x712 | 144 | 16x8 | 88x89 | 53 | 0.98 |
+
+Tablet and up are unchanged by the compact target. `ENTRANCE_MS` is unchanged
+at 2050ms either way — only the number of steps differs, never the timing.
 
 A `ResizeObserver` on the position wrapper drives it, not a media query: the
 box's width comes from the page grid and its height from the viewport, so the
@@ -389,32 +428,61 @@ rectangle read as a hole punched in the page.
 
 A mask has no fill. There is nothing to match, because nothing is painted.
 
-Support was verified before the rewrite, not assumed: `mask-image: url(#…)`
-referencing an inline `<mask>` was confirmed working on both a plain element
-and a live `<video>` container in Chrome and Safari, using a temporary probe
-route that was deleted once it had answered the question. `CSS.supports` cannot
-answer this — it parses the declaration and returns true for a reference that
-never resolves.
+**The claim that Safari support was verified was wrong, and it cost an iPhone
+release.** This spec previously recorded that `mask-image: url(#…)` over a live
+`<video>` had been confirmed working in Chrome and Safari using a temporary
+probe route. That route was deleted, so the claim could never be re-checked —
+and it does not hold on iOS. MDN's browser-compat-data and caniuse both record
+that Safari does not support `mask-image` referencing an SVG mask by `url(#id)`.
 
-Both the prefixed and unprefixed properties are written.
+What was OBSERVED on an iPhone 17 / iOS 26: nothing drew for the whole 2050ms
+and the film appeared in one step at the end. The reveal was never drawn.
 
-### The pixel mask
+**The mechanism is unconfirmed.** That behaviour fits the mask being applied but
+never re-read as its rects are mutated, and fits equally well the reference
+failing to resolve and being treated as an empty mask, which hides everything
+while applied. No WebKit bug report was found for either, and no device
+debugging was done. The canvas fix does not depend on which it is.
 
-16 × 9 = 144 `<rect>` cells inside an SVG `<mask>`, matching the rectangle's
-proportion so each cell is exactly square. The `<svg>` is zero-sized and
-`aria-hidden`; it paints nothing itself and exists only to hold the `<defs>`.
-Never rendered on the server, so without JavaScript no mask is applied and the
-poster simply shows.
+The reveal is therefore painted into a `<canvas>`, which depends on no CSS mask
+support at all. See **The pixel reveal**.
 
-**`maskContentUnits="objectBoundingBox"` is what makes this free.** Coordinates
-are fractions of whatever the masked element turns out to be, so there is no
-`getBoundingClientRect`, no resize listener, and nothing to recompute when the
-viewport changes. The old clip-path morph needed all three.
+### The pixel reveal
 
-The container is 16:9 and the grid is 16 × 9, so one cell is square on screen
-even though its width and height are different numbers in that space — 1/16 of
-the width equals 1/9 of the height in pixels. That is also why a circular cell
-needs `rx` and `ry` set separately.
+A grid of cells painted into a `<canvas>` laid over the film, matching the
+rectangle's proportion so each cell is exactly square — 16 × 9 = 144 on a
+desktop, 8 × 8 = 64 or 7 × 9 = 63 on a phone. The canvas is
+`aria-hidden` and `pointer-events-none`, and is mounted only while the entrance
+runs — unmounting it is what returns the rectangle to the real video. Never
+rendered on the server, so without JavaScript nothing covers the poster.
+
+Two passes per frame:
+
+1. the cells are filled as paths, each at its own alpha, which builds the shape;
+2. `globalCompositeOperation = "source-in"` draws the video frame, which
+   survives only where a cell is and at that cell's alpha.
+
+Where no cell has arrived the canvas is genuinely transparent, so the hero's
+gradient shows straight through it.
+
+**The real `<video>` is held at `opacity: 0` underneath, not unmounted.** The
+canvas reads its frames with `drawImage`, so the element has to stay laid out,
+playing and decoding. `hidden` would stop it rendering on iOS and there would be
+nothing to draw.
+
+**One requestAnimationFrame loop computes and paints the cells.** Geometry is
+calculated from the current canvas dimensions on each frame. The starting
+circle diameter uses the shorter side of a grid slot; width and height grow
+independently into the slot while the radius shrinks to zero. The cubic morph
+matches the previous `power2.inOut` easing.
+
+The animation clock starts only with a sized canvas and a decoded, non-seeking
+video frame. Missing layout or media does not spend the reveal duration. A
+long frame contributes at most 64ms, avoiding a jump straight to the end after
+a scheduling pause. The real video replaces the canvas only after the final
+paint succeeds, or an explicit fallback. The backing resolution remains capped
+at device pixel ratio 2.
+
 
 Cells are filled `#fff`. That is a luminance value, not a design colour — white
 means "show this part of the element" — so it has no token and wants none.
@@ -443,8 +511,8 @@ The diameter is now taken from the shorter side of the cell and both axes are
 given that same length, converted back through the box's own dimensions. The
 rect is square on screen whatever shape its cell is. `finished` still fills the
 cell exactly, so the morph ends on a grid that tiles — only the start is a
-circle. Cells begin oversized by
-`PIXEL_CELL_SCALE` (1.42) and settle at exactly their own slot.
+circle. Cells begin at `PIXEL_CELL_SCALE` of their slot and grow to fill it
+exactly.
 
 That figure is inherited from the cover, where it was a coverage requirement: a
 circle only *hides* a square if its diameter is that square's diagonal, so
@@ -453,14 +521,24 @@ than covering, that constraint is gone** — the finished state is a square at
 scale 1 tiling its slot exactly, and coverage at the start no longer matters.
 
 So `PIXEL_CELL_SCALE` is set for legibility rather than coverage, and it is
-**1.05**. At the inherited 1.42 the round cells overlapped heavily and the image
-filled in before the circles could be read as circles. Just over 1 keeps them
-as distinct dots that close the gaps only as they square up.
+**0.6**. At the inherited 1.42 the round cells overlapped heavily and the image
+filled in before the circles could be read as circles.
 
-Not exactly 1: at 1 the starting circle is inscribed in its slot and the dots
-never touch until the last moment of each cell's tween. Only the start state is
-affected — every cell finishes at its own slot exactly, so the finished mask
-tiles perfectly whatever this is set to.
+**0.9 was still far too large, and only a device showed it.** This spec
+previously argued for "just over 1", on the grounds that neighbours should meet
+as they resolve. On an iPhone that left a 25px dot in a 28px cell — a 3px gap —
+so the dots touched almost at once and the whole reveal read as a soft fade
+rather than as pixels. That was confirmed *not* to be a drawing fault first: the
+canvas reported `painted complete` over 125 frames and 2060ms before anything
+was retuned.
+
+At 0.6 the dot is a little over half its slot, so a clear band of the hero's
+gradient shows between neighbours and each is visibly a circle before it grows.
+The gaps close during the morph, which is where that belongs.
+
+Only the start state is affected — every cell finishes at its own slot exactly,
+so the finished mask tiles perfectly whatever this is set to. That is what
+makes it safe to tune by eye.
 
 **Cells are grown, not transformed.** The four geometry attributes — `x`, `y`,
 `width`, `height` — animate together with `rx` and `ry`, rather than a
@@ -475,16 +553,17 @@ place: `showreel-pixels.tsx`.
 
 ```
 position wrapper   aspect-video, reserves the space. No background and no
-                   clip — the hero's gradient shows through wherever the mask
-                   has not yet filled in.
-  shape wrapper    carries the mask; rounded-lg + overflow-hidden ARE the
-                   finished state. No background: there is nothing behind the
-                   video to hide, and a solid one would show as a block in the
-                   hero while the entrance waited.
-    video          size-full object-cover, never scaled or distorted
-    poster         shown until the first real frame exists
-  mask <defs>      a zero-sized svg holding the 144 rects. Paints nothing;
-                   referenced by url(#…) from the shape wrapper
+                   clip — the hero's gradient shows through wherever the
+                   reveal has not yet filled in.
+  shape wrapper    rounded-lg + overflow-hidden ARE the finished state. No
+                   background: there is nothing behind the video to hide, and
+                   a solid one would show as a block in the hero while the
+                   entrance waited.
+    media layer    the video and its poster. opacity-0 for the entrance.
+      video        size-full object-cover, never scaled or distorted
+      poster       shown until the first real frame exists
+    reveal canvas  the cells, drawn over the film. Mounted only while the
+                   entrance runs, and clipped by the shape wrapper's corners
 ```
 
 The rounding survives the reveal without extra work: `rounded-lg` plus
@@ -576,50 +655,36 @@ through instead, which is correct.
 
 ```
 shape wrapper      rounded-lg + overflow-hidden, opacity gate. No background.
-  hold canvas      the outgoing frame. UNMASKED, and hidden when idle
-  masked layer     carries mask-image; everything below it is revealed
+  hold canvas      the outgoing frame. Never hidden by the reveal, and
+                   hidden when idle
+  media layer      the incoming film. opacity-0 while the entrance runs
     video
     poster
+  reveal canvas    the cells, drawn from the video above
 ```
 
 ## Failure behaviour
 
-The mask can never be left half-applied. Six routes end it, and each leaves the
-whole video showing:
+The entrance completes after a successful final paint. A missing canvas
+context, a drawing exception, a video error, or a drawing timeout reveals the
+normal video/poster instead of leaving a permanent blank rectangle.
 
-- the timeline completing
-- GSAP failing to load — caught, revealed immediately
-- the reveal watchdog, at `ENTRANCE_MS + 1500`
-- the cover watchdog, at `ENTRANCE_MS + 3000`, timed from the **later of
-  becoming visible and the hero entrance settling**. This is the one that
-  covers an entrance that never begins at all — autoplay refused, `playing`
-  never reported, a stall. It is gated on `mayLoad` rather than on the cover,
-  so it runs whether or not the cover was ever armed: with the rectangle now
-  transparent until the entrance starts, an entrance that never starts would
-  otherwise leave a permanent hole in the hero rather than a permanent block.
-  Setting `revealDone` resolves both — it removes any cover and paints the
-  rectangle.
+Two independent budgets cover different phases:
 
-  Both conditions are needed and neither alone is enough. Waiting off screen
-  must cost nothing, so visibility has to be in there. But in the hero the
-  section is visible at first paint while the hero's cue is still 1850ms
-  away, and timing from visibility alone would spend most of the budget before
-  the entrance was even allowed to start — the timer would then fire partway
-  through the morph and tear the cover off mid-animation, which is the one
-  thing it exists to prevent. Timing from the later of the two gives the
-  budget it was designed to have: the whole entrance plus three seconds of
-  slack, measured from the first moment the reveal could actually run.
+- Media readiness: `ENTRANCE_MS + 3000`, starting once visible and hero-cued.
+  Cancelled when `canReveal` becomes true; reset for each project.
+- Drawing: `ENTRANCE_MS + 3000`, starting when the drawing effect begins.
 
-  `reduced` needs no special case: it clears `mayLoad`, so no cover is armed
-- a project switch, which cancels rather than replaying
-- **the entrance effect being cleaned up mid-flight** — a scroll away, or an
-  unmount. This one cannot set `revealDone`, so instead of removing the mask it
-  *completes* it: every cell is forced to its finished square at full opacity,
-  which makes the mask solid white and therefore a no-op. A mask only has to be
-  finished to stop hiding things, where a cover had to be removed from the DOM.
+Cleanup cancels the drawing loop without painting a fully revealed frame.
+Resuming visibility or changing the grid restarts the pending reveal. A project
+change starts a new reveal over the captured outgoing frame. A repeated press
+on the current project leaves playback and the entrance alone.
 
-A failed video sets both `failed` and `revealDone`, so the mask cannot hide the
-poster for good.
+The temporary `/?debug=showreel` readout retains the drawing status, frame count
+and elapsed reveal time after the canvas unmounts. It distinguishes normal
+completion, media readiness timeout, drawing timeout and drawing failure.
+Device verification is still required; the screenshots alone do not establish
+which path caused the original missing effect.
 
 Without JavaScript: no grid is rendered, no `src` is set, and the poster shows
 inside the final rectangle.
@@ -708,39 +773,15 @@ be reached anyway.
 `md:hidden` on the copies — from `md` up the strip wraps instead of scrolling,
 and unhidden copies would lay out as eight extra pills.
 
-**No switch sends the strip travelling.** The pill that becomes active is
-always the middle copy's, so if the visitor is looking at a different copy — or
-if the carousel simply wraps from the last project back to the first — centring
-alone would smooth-scroll a whole copy-width across the strip.
+**A click centres the exact copy pressed.** The row animates toward that name
+for 400ms, then rebases to the identical middle copy without visible travel.
+An automatic advance chooses the next occurrence to the right, including the
+last-to-first project boundary. The middle copy is no longer an unconditional
+animation target.
 
-Copies are identical, so `alignToNearestCopy` moves the strip by the distance
-between the incoming pill's nearest twin and the real one, before the scroll
-begins. The real pill lands exactly where the eye already is, nothing appears
-to move, and the smooth scroll that follows travels a short distance in
-whichever direction is nearest.
-
-It is called from `selectProject`, so it covers every route a switch can
-take. That matters: it lived in the click handler at first, which fixed presses
-and left the automatic advance jumping — and the automatic wrap, BITAZZA back
-to LAGA, is the longest journey of all.
-
-| Switch | Nearest copy | Travel before | after |
-|---|---|---|---|
-| wrap, BITAZZA to LAGA | 2 | 289px back | 89px forward |
-| LAGA to NOURIGO | 1 (no shift) | 87px | 87px |
-| INN NEWS to BITAZZA | 1 (no shift) | 103px | 103px |
-
-Ordinary advances need no shift at all — the middle copy is already nearest —
-so the mechanism costs nothing except where it is needed.
-
-A shift that would push the strip outside its scroll range is refused rather
-than clamped: a clamped shift moves the strip somewhere the eye did not expect,
-which is the fault this exists to prevent, and a long smooth scroll is the
-lesser of the two.
-
-`scrollLeft` is written directly rather than through `scrollTo`, because it has
-to land in the same frame as the switch. Any easing there would be the jump it
-exists to hide.
+The initial ResizeObserver notification does not cancel an active animation;
+only an actual width change recentres the row. Reduced motion centres instantly.
+Clicking the already active project does not reset playback or move the strip.
 
 **The strip is the only thing that leaves the page grid.** `-mx-gutter-mobile`
 pulls it back out so it spans the full screen and the pills are clipped by the
@@ -752,7 +793,7 @@ to clip.
 rather than a second copy of the breakpoint: the strip is a scroller exactly
 when its own classes have made it one.
 
-Centring uses `scrollTo` on the strip, never `scrollIntoView` on the pill: the
+Centring writes `scrollLeft` on the strip, never `scrollIntoView` on the pill: the
 latter walks up the ancestor chain and can scroll the page itself, which on a
 phone would mean the hero jumping every time the showreel rotated on its own.
 Offsets are measured from rendered rectangles rather than `offsetLeft`, which
