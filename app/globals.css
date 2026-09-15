@@ -3,7 +3,7 @@
 @import "./typography.css";
 
 /*
-  NOTHING ON `:root`, AND THAT IS DELIBERATE.
+  NOTHING ON `:root`, AND THE REASON IS NOT THE ONE YOU EXPECT.
 
   The document background lives on `<body>` alone, below. With no background on
   the root element, the body's is propagated to the canvas by the CSS box
@@ -22,15 +22,47 @@
   culprit. It is reverted first because it is the newer and more invasive of
   the two. See the 15 September 2026 update, section 11.
 
-  **Do not put a background back on `:root`** without retesting Safari's
-  frosted toolbar on a device. And note the trap if you try to colour the
-  bottom overscroll another way: a `fixed` or `sticky` element touching a
-  viewport edge is what drops the translucent material in the first place
-  (section 10), so that route trades one fault for the other.
+  **It is SAFE. It simply does not work.** Both halves of that were established
+  on device on 15 September 2026, and the distinction is the whole point of
+  this note.
 
-  Consequence, recorded honestly: the bottom overscroll bounces cream again
-  rather than the footer's orange. That requirement is unsolved, not solved
-  differently.
+  Safe: the gradient was re-tested in isolation, with nothing else in the pass,
+  and the frosted toolbar survived scrolling and a drawer open/close throughout.
+  So a root background does NOT influence Safari's toolbar compositing — the
+  suspicion that it did was wrong, and the two real causes are elsewhere: a
+  sticky element occupying the toolbar's own band (section 10) and a fixed layer
+  surviving its closing transform (section 13).
+
+  Does not work: the bottom overscroll still bounced cream. `<html>` carries
+  `h-full`, so the ROOT ELEMENT'S BOX IS ONE VIEWPORT TALL, not the document.
+  The canvas rules paint the root's background across the whole canvas but size
+  and position it to the root's own box, and with `background-repeat` at its
+  default the gradient TILES in viewport-height bands. Which half of a tile
+  lands at the end of the document depends on that document's height — so the
+  bounce colour is arbitrary per route, not merely wrong. That is worse than a
+  consistent cream, and why this was reverted rather than kept.
+
+  **If you want to solve it properly**, the root's box has to span the document:
+  drop `h-full` from `<html>`, and change `<body>`'s `min-h-full` to `min-h-svh`
+  in the same edit — a percentage min-height resolves against the parent's
+  height, so against an auto-height root it would collapse and short pages would
+  lose their sticky footer.
+
+  Two routes that CANNOT work, so nobody spends time on them:
+
+  - An element at the end of the document. The rubber-band area paints the
+    canvas; the page never extends into it.
+  - A `fixed` or `sticky` strip at the foot of the page. That is precisely what
+    drops the translucent toolbar material, so it trades one fault for the
+    other.
+
+  `<body>` cannot carry it either: with no background on the root, a background
+  on the body PROPAGATES to the canvas and the body then paints none itself, so
+  it would show through the page wherever a section has no background of its
+  own.
+
+  Consequence, recorded plainly: the bottom overscroll bounces cream rather than
+  the footer's orange. Accepted, not outstanding.
 */
 
 * {
