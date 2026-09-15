@@ -269,11 +269,48 @@ export default function Showreel() {
     Observing the position wrapper, which is always mounted, rather than the
     mask, which comes and goes with each entrance.
   */
+  /*
+    True while a reveal is actually running, mirrored into a ref so the
+    ResizeObserver below can read it without being torn down and rebuilt every
+    time the flag changes. Written from an effect rather than during render —
+    the latter is what `react-hooks/set-state-in-effect` and its neighbours
+    exist to discourage.
+  */
+  const revealRunningRef = useRef(false);
+  useEffect(() => {
+    revealRunningRef.current = showPixels;
+  }, [showPixels]);
+
   useEffect(() => {
     const box = boxRef.current;
     if (!box) return;
 
     const observer = new ResizeObserver(([entry]) => {
+      /*
+        **Never re-lay the grid under a running reveal.**
+
+        `pixelGrid` searches for the squarest arrangement, so it is knife-edge
+        sensitive: a ONE PIXEL change in width or height can flip 18x8 to 19x8.
+        And `grid` is both in the entrance effect's dependency array and part of
+        the canvas `key`, so a change mid-flight remounted the canvas and
+        re-ran the effect — `elapsed` reset to zero and the same clip revealed
+        a second time. Reported on desktop, 15 September 2026.
+
+        There was no large layout event to blame and there did not need to be;
+        any sub-pixel settle inside the ~2s reveal window was enough.
+
+        The grid only describes the reveal that is currently running. Changing
+        it mid-reveal cannot improve that reveal, and afterwards the canvas
+        unmounts anyway — so the value only ever matters for the NEXT one, which
+        picks up the current shape when it arms.
+
+        Trade-off, deliberately accepted: if the box genuinely changes shape
+        mid-reveal — a window drag — the cells stay laid out for the old aspect
+        for the rest of that reveal and are slightly off-square. A momentarily
+        imperfect grid beats the reveal restarting from the beginning.
+      */
+      if (revealRunningRef.current) return;
+
       const { width, height } = entry.contentRect;
       if (!width || !height) return;
       /* Fewer, bigger cells on a small rectangle. 144 of them in the ~337px
@@ -787,7 +824,13 @@ export default function Showreel() {
           */}
           {showPixels ? (
             <canvas
-              key={`${index}-${grid.columns}x${grid.rows}`}
+              /* Keyed on the PROJECT only. The grid used to be in here too, so
+                 that a re-arrangement started from a blank canvas — but
+                 `pixelGrid` can flip on a one-pixel change, which remounted the
+                 canvas mid-reveal and restarted it. The observer above no
+                 longer re-lays the grid while a reveal is running, so there is
+                 nothing left for this key to guard against. */
+              key={index}
               ref={revealRef}
               aria-hidden="true"
               className="pointer-events-none absolute inset-0 size-full"

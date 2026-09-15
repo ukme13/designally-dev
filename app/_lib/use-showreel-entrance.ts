@@ -154,5 +154,17 @@ export function useShowreelEntrance({
       // Never paint a complete frame during cleanup: React can clean up for a
       // resize or effect replay while the reveal is still pending.
     };
+    /*
+      `grid` stays in here deliberately: the cells are laid out from it, so a
+      genuine re-arrangement must rebuild the reveal rather than paint the new
+      count into a run sized for the old one.
+
+      That is safe only because the caller no longer changes `grid` while a
+      reveal is running — see the ResizeObserver in showreel.tsx. It used to,
+      and since `pixelGrid` can flip on a one-pixel change, that re-ran this
+      effect mid-flight, reset `elapsed` to zero and revealed the same clip
+      twice. If grid updates are ever un-gated there, this dependency becomes a
+      replay bug again.
+    */
   }, [canReveal, grid, projectKey, canvasRef, videoRef, diagnosticsRef, onRevealed]);
 }
