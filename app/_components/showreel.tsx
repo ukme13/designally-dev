@@ -277,8 +277,36 @@ export default function Showreel() {
     exist to discourage.
   */
   const revealRunningRef = useRef(false);
+  /*
+    The latest measurement taken while a reveal was running, held until it can
+    be applied without disturbing it. Null when nothing is outstanding.
+
+    A ref rather than state on purpose: parking a measurement must not itself
+    cause a render, or the deferral would reintroduce exactly the mid-reveal
+    churn it exists to avoid.
+  */
+  const pendingGridRef = useRef<PixelGrid | null>(null);
   useEffect(() => {
     revealRunningRef.current = showPixels;
+    if (showPixels) return;
+
+    /*
+      The reveal has finished, so a re-arrangement can no longer disturb it —
+      apply whatever the observer parked while it was running.
+
+      This cannot restart anything. `showPixels` only drops when `revealDone`
+      turns true, and `canReveal` carries `!revealDone`, so the entrance effect
+      re-runs on the new `grid` and returns at its first line. The value is
+      simply in place for the next project, which arms with the current shape.
+    */
+    const pending = pendingGridRef.current;
+    if (!pending) return;
+    pendingGridRef.current = null;
+    setGrid((current) =>
+      current.columns === pending.columns && current.rows === pending.rows
+        ? current
+        : pending,
+    );
   }, [showPixels]);
 
   useEffect(() => {
@@ -286,31 +314,6 @@ export default function Showreel() {
     if (!box) return;
 
     const observer = new ResizeObserver(([entry]) => {
-      /*
-        **Never re-lay the grid under a running reveal.**
-
-        `pixelGrid` searches for the squarest arrangement, so it is knife-edge
-        sensitive: a ONE PIXEL change in width or height can flip 18x8 to 19x8.
-        And `grid` is both in the entrance effect's dependency array and part of
-        the canvas `key`, so a change mid-flight remounted the canvas and
-        re-ran the effect — `elapsed` reset to zero and the same clip revealed
-        a second time. Reported on desktop, 15 September 2026.
-
-        There was no large layout event to blame and there did not need to be;
-        any sub-pixel settle inside the ~2s reveal window was enough.
-
-        The grid only describes the reveal that is currently running. Changing
-        it mid-reveal cannot improve that reveal, and afterwards the canvas
-        unmounts anyway — so the value only ever matters for the NEXT one, which
-        picks up the current shape when it arms.
-
-        Trade-off, deliberately accepted: if the box genuinely changes shape
-        mid-reveal — a window drag — the cells stay laid out for the old aspect
-        for the rest of that reveal and are slightly off-square. A momentarily
-        imperfect grid beats the reveal restarting from the beginning.
-      */
-      if (revealRunningRef.current) return;
-
       const { width, height } = entry.contentRect;
       if (!width || !height) return;
       /* Fewer, bigger cells on a small rectangle. 144 of them in the ~337px
@@ -324,6 +327,39 @@ export default function Showreel() {
           ? PIXEL_TARGET_CELLS_COMPACT
           : PIXEL_TARGET_CELLS,
       );
+
+      /*
+        **Never re-lay the grid under a running reveal. DEFER it, do not drop
+        it.**
+
+        `pixelGrid` searches for the squarest arrangement, so it is knife-edge
+        sensitive: a ONE PIXEL change in width or height can flip 18x8 to 19x8.
+        And `grid` is both in the entrance effect's dependency array and part of
+        the canvas `key`, so a change mid-flight remounted the canvas and
+        re-ran the effect — `elapsed` reset to zero and the same clip revealed
+        a second time. Reported on desktop, 15 September 2026.
+
+        There was no large layout event to blame and there did not need to be;
+        any sub-pixel settle inside the ~2s reveal window was enough.
+
+        **An earlier version of this discarded the measurement instead, and that
+        was too blunt.** A cell is `width / columns` by `height / rows`, so a
+        grid held against a box that has changed shape is stretched by exactly
+        that difference: a 16x8 grid painted into a box 88px shorter — one `sm`
+        breakpoint step of `--showreel-reserve` — is 16.7% off square, and into
+        one 200px narrower, 15.7%. The search's own residual is 0.1-1.7% on a
+        desktop box, so a stale grid is an order of magnitude worse than the
+        imprecision it was traded against. Visible, and reported.
+
+        Parking it costs nothing: the reveal still runs to completion on one
+        stable grid, and the effect above applies this the moment it ends.
+      */
+      if (revealRunningRef.current) {
+        pendingGridRef.current = next;
+        return;
+      }
+
+      pendingGridRef.current = null;
       /* Only on a real change: this fires on every resize frame, and a new
          object each time would remount the mask mid-drag. */
       setGrid((current) =>
