@@ -127,10 +127,15 @@ export const ADVANCE_FALLBACK_MS = 15000;
 /* ---------------------------------------------------------------------------
    Pixel reveal.
 
-   A grid of cells in an SVG mask applied to the video's own container. Cells
-   start invisible, so the rectangle is genuinely transparent and the hero's
-   gradient shows through it; they fade in from the centre outward and the film
-   materialises out of the page.
+   A grid of cells painted into a canvas over the video. Cells start invisible,
+   so the rectangle is genuinely transparent and the hero's gradient shows
+   through it; they fade in from the centre outward and the film materialises
+   out of the page.
+
+   It was a CSS mask referencing an inline SVG `<mask>` until 15 September
+   2026. On an iPhone the entrance was invisible — nothing drew for its whole
+   length. The exact WebKit mechanism is unconfirmed; see
+   use-showreel-entrance.ts.
 
    It was an opaque cover dissolving OFF the video until 7 September 2026. The
    inversion is what removed the cover colour problem entirely — there is no
@@ -140,22 +145,45 @@ export const ADVANCE_FALLBACK_MS = 15000;
 --------------------------------------------------------------------------- */
 
 /**
- * The `id` the mask is registered under and referenced by.
- *
- * A constant rather than a generated id: there is one showreel per page, the
- * reference has to be written into a CSS `url(#…)` on a different element, and
- * a stable name is what makes that legible in devtools.
- */
-export const SHOWREEL_MASK_ID = "showreel-pixel-mask";
-
-/**
- * Roughly how many cells the grid aims for, whatever shape it has to fill.
+ * Roughly how many cells the grid aims for on a full-size rectangle.
  *
  * The count is held near-constant and the arrangement varies, rather than the
  * other way round, so the reveal takes about the same number of steps at every
- * size and the effect reads the same on a phone as on a desktop.
+ * size.
+ *
+ * **It does NOT read the same on a phone as on a desktop, and this constant
+ * used to claim it did.** That was disproved on a device on 15 September 2026:
+ * 144 cells in the ~337px box a phone gives makes each cell about 28px, and at
+ * the old `PIXEL_CELL_SCALE` the dots were 25px with 3px between them. They
+ * merged on contact and the whole effect read as a soft fade rather than as
+ * pixels. See `PIXEL_TARGET_CELLS_COMPACT`.
  */
 export const PIXEL_TARGET_CELLS = 144;
+
+/**
+ * The count used when the rectangle is small, which in practice means a phone.
+ *
+ * Fewer, bigger cells. At 64 in a ~337px box the grid resolves to 8 x 8 — the
+ * search finds it exactly, with zero drift — so a cell is about 42px and the
+ * starting dot about 25px, leaving roughly 17px of the hero's gradient showing
+ * between neighbours. That is the difference between reading as pixels and
+ * reading as grain.
+ *
+ * The timings are untouched, so `ENTRANCE_MS` is unchanged and the hero's
+ * choreography still lands where it did. Only the number of steps changes.
+ */
+export const PIXEL_TARGET_CELLS_COMPACT = 64;
+
+/**
+ * Box widths below this use the compact count, in CSS pixels.
+ *
+ * Measured against the real rectangle rather than a breakpoint: its width comes
+ * from the page grid and its height from the viewport, so the same reasoning
+ * that made the grid a `ResizeObserver` rather than a media query applies here.
+ * A phone lands near 337, a tablet near 688, so 480 separates them with room on
+ * both sides.
+ */
+export const PIXEL_COMPACT_MAX_PX = 480;
 
 /** The 16:9 arrangement. Also the default before anything has been measured. */
 export const PIXEL_COLUMNS = 16;
@@ -323,19 +351,25 @@ export const PIXEL_MORPH_MS = 550;
  *
  * So this is now purely aesthetic, and it is set for legibility rather than
  * coverage. At the inherited 1.42 the round cells overlapped heavily and the
- * image filled in before the circles could be read as circles. Just over 1
- * keeps them as distinct dots that close the gaps only as they square up,
- * which is the whole point of the shape.
+ * image filled in before the circles could be read as circles.
  *
- * Not exactly 1: at 1 the starting circle is inscribed in its slot and the
- * dots never touch until the last moment of each cell's tween. The 5% is
- * enough for neighbours to meet as they resolve, without the overlap reading
- * as a blur.
+ * **0.9 was still far too large, and it took a device to show it.** The
+ * reasoning here previously argued for a value "just over 1", on the grounds
+ * that neighbours should meet as they resolve. On the phone that left a 25px
+ * dot in a 28px cell — a 3px gap — so the dots touched almost immediately and
+ * the reveal read as a soft fade. Confirmed not to be a drawing fault first:
+ * the canvas reported `painted complete` over 125 frames and 2060ms.
+ *
+ * At 0.6 a dot is a little over half its cell, so a clear band of the hero's
+ * gradient shows between neighbours and each one is visibly a circle before it
+ * grows into its slot. The gaps close during the morph, which is where that
+ * closing belongs.
  *
  * Only the START is affected. Every cell finishes at its own slot exactly,
- * whatever this is set to, so the finished mask always tiles perfectly.
+ * whatever this is set to, so the finished mask always tiles perfectly — which
+ * is what makes this safe to tune by eye.
  */
-export const PIXEL_CELL_SCALE = 0.9;
+export const PIXEL_CELL_SCALE = 0.6;
 
 /**
  * First pixel appearing to the last one finishing its morph.

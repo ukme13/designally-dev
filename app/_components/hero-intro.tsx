@@ -14,17 +14,20 @@ import { INTRO } from "@/app/_lib/intro";
 /**
  * Homepage entrance animation.
  *
- * Renders three things, two of them permanent:
+ * Renders two things, both permanent:
  *
  * 1. the cream-to-orange gradient, which is the hero's real background and is
  *    plain CSS, so it survives with or without JavaScript;
- * 2. the three statement lines, which stay in place once they arrive;
- * 3. a solid-orange base beneath the gradient, which the reveal uncovers.
+ * 2. the three statement lines, which stay in place once they arrive.
  *
- * The reveal masks rather than moves. Solid orange is the base; the finished
- * gradient sits above it and stays completely still, while a soft mask
- * uncovers it from the top down. Only the boundary travels, so the gradient
- * arrives in its true proportions instead of being animated into them.
+ * **The solid-orange base is no longer here.** It moved onto the scroll stage
+ * in page.tsx on 15 September 2026 — see the note below where it used to sit.
+ *
+ * The reveal masks rather than moves. Solid orange is the base, now painted by
+ * the stage; the finished gradient sits above it and stays completely still,
+ * while a soft mask uncovers it from the top down. Only the boundary travels,
+ * so the gradient arrives in its true proportions instead of being animated
+ * into them.
  *
  * See docs/specs/STARTUP-INTRO.md for the full timeline.
  *
@@ -47,7 +50,27 @@ import { INTRO } from "@/app/_lib/intro";
  * fight it, with stylesheet order deciding the winner rather than the order
  * written here.
  */
-const STATEMENT_BLOCK = "absolute inset-0 pointer-events-none opacity-30";
+/*
+  `hidden lg:block` — the three statement lines are DESKTOP ONLY as of
+  15 September 2026.
+
+  They are set at `opacity-30` behind the showreel and fly upward on scroll, and
+  on a phone that behaviour was paying for itself twice over: it needed a second
+  viewport of scroll track to fly through, which read as an empty screen before
+  the next section, and the entrance that introduces them held the scroll lock
+  and the navbar for nearly four seconds first.
+
+  `display: none` rather than `opacity-0` on purpose — the elements must not
+  occupy layout or be animated at all. `use-hero-entrance.ts` skips its timeline
+  below the same breakpoint, and `use-statement-flight.ts` and
+  `use-statement-parallax.ts` are both gated on the entrance having run, so
+  nothing is left driving them.
+
+  Keep 64rem / `lg` in step across those files and the pre-paint script in
+  layout.tsx.
+*/
+const STATEMENT_BLOCK =
+  "absolute inset-0 hidden pointer-events-none opacity-30 lg:block";
 
 /**
  * The three lines, in line identity order — one, two, three.
@@ -274,10 +297,53 @@ export default function HeroIntro() {
     ease: PARALLAX_EASE,
   });
 
+  /*
+    The root below is `inset-x-0 top-0 h-lvh`, NOT `inset-0` — decoupled from
+    its parent's height on purpose, and it must stay that way.
+
+    The sticky box in page.tsx is deliberately 6rem SHORTER than the viewport,
+    because a sticky element extending into the band behind Safari 26's
+    floating bottom toolbar makes the toolbar drop its translucent material and
+    go solid. Measured on device: 0px, 8px and 24px of clearance all failed;
+    96px works.
+
+    With `inset-0` this element inherited that shortened height, which cropped
+    the big "Make it…" lettering at the foot of the hero — the two constraints
+    pull against each other, so no single inset satisfies both. Pinning to the
+    top and taking a full `100lvh` instead separates them: the sticky box's
+    layout box still clears the toolbar, while the gradient and the statement
+    lines render at their true height and simply overflow the parent's bottom by
+    6rem.
+
+    That overflow is visible because the sticky box sets no overflow rule of its
+    own. `overflow-hidden` on the root is still wanted and still correct — it
+    frames the statement lines against a 100lvh box, exactly as it did before
+    any of these insets existed.
+
+    Paint order is unchanged: the sticky box is the stage's first child, so the
+    overflowing gradient paints beneath the hero section that follows it.
+
+    A plain block comment, deliberately, and not a JSX comment inside the
+    return. `return (` takes a SINGLE JSX expression, so a comment placed there
+    ahead of the element is a second sibling expression and fails to parse.
+    That is how this note was first written, and it did not compile.
+
+    It then failed a second time for a different reason: this text quoted the
+    opening and closing delimiters of a JSX comment literally. Block comments do
+    not nest, so the embedded terminator ended this one early, the remainder was
+    parsed as code, and a stray backtick opened a template literal that never
+    closed. Name the delimiters, never spell them.
+  */
   return (
-    <div ref={rootRef} className="absolute inset-0 overflow-hidden">
-      {/* Base. Solid orange, permanently beneath the gradient. */}
-      <div aria-hidden="true" className="absolute inset-0 bg-action-primary" />
+    <div ref={rootRef} className="absolute inset-x-0 top-0 h-lvh overflow-hidden">
+      {/* The base that used to live here — `absolute inset-0
+          bg-action-primary` — moved onto the scroll stage in page.tsx on
+          15 September 2026. The stage is `position: relative`, so the orange
+          is no longer inside a `sticky` subtree where Safari's toolbar sampler
+          might reach it, and it now covers the WHOLE stage rather than just
+          this box, which is what stops a cream gap showing below the gradient
+          once it unpins. Nothing about the reveal changed: the mask still
+          uncovers the gradient, and orange is still what sits beneath. */}
 
       {/* The finished gradient. Permanent and stationary — a soft mask
           uncovers it from the top down, so only the edge moves. */}

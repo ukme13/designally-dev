@@ -2,9 +2,68 @@
 @import "./tokens.css";
 @import "./typography.css";
 
-:root {
-  background: var(--surface-base);
-}
+/*
+  NOTHING ON `:root`, AND THE REASON IS NOT THE ONE YOU EXPECT.
+
+  The document background lives on `<body>` alone, below. With no background on
+  the root element, the body's is propagated to the canvas by the CSS box
+  model, so both the page and the overscroll areas paint `--surface-base`
+  exactly as they did before — this is visually identical to declaring it here.
+
+  **A two-stop gradient was tried here on 15 September 2026 and reverted the
+  same day.** The aim was an orange bottom overscroll to match the footer, on
+  the reasoning that Safari never samples a `background-image` for its toolbar
+  tint. The frosted toolbar broke again on device immediately after, so that
+  reasoning is not safe: the root/canvas background appears to influence
+  toolbar compositing whether or not it is a flat colour.
+
+  That test was confounded — it shipped alongside a change to the sticky hero
+  stage's inset in the same pass — so the gradient is not *proven* to be the
+  culprit. It is reverted first because it is the newer and more invasive of
+  the two. See the 15 September 2026 update, section 11.
+
+  **It is SAFE. It simply does not work.** Both halves of that were established
+  on device on 15 September 2026, and the distinction is the whole point of
+  this note.
+
+  Safe: the gradient was re-tested in isolation, with nothing else in the pass,
+  and the frosted toolbar survived scrolling and a drawer open/close throughout.
+  So a root background does NOT influence Safari's toolbar compositing — the
+  suspicion that it did was wrong, and the two real causes are elsewhere: a
+  sticky element occupying the toolbar's own band (section 10) and a fixed layer
+  surviving its closing transform (section 13).
+
+  Does not work: the bottom overscroll still bounced cream. `<html>` carries
+  `h-full`, so the ROOT ELEMENT'S BOX IS ONE VIEWPORT TALL, not the document.
+  The canvas rules paint the root's background across the whole canvas but size
+  and position it to the root's own box, and with `background-repeat` at its
+  default the gradient TILES in viewport-height bands. Which half of a tile
+  lands at the end of the document depends on that document's height — so the
+  bounce colour is arbitrary per route, not merely wrong. That is worse than a
+  consistent cream, and why this was reverted rather than kept.
+
+  **If you want to solve it properly**, the root's box has to span the document:
+  drop `h-full` from `<html>`, and change `<body>`'s `min-h-full` to `min-h-svh`
+  in the same edit — a percentage min-height resolves against the parent's
+  height, so against an auto-height root it would collapse and short pages would
+  lose their sticky footer.
+
+  Two routes that CANNOT work, so nobody spends time on them:
+
+  - An element at the end of the document. The rubber-band area paints the
+    canvas; the page never extends into it.
+  - A `fixed` or `sticky` strip at the foot of the page. That is precisely what
+    drops the translucent toolbar material, so it trades one fault for the
+    other.
+
+  `<body>` cannot carry it either: with no background on the root, a background
+  on the body PROPAGATES to the canvas and the body then paints none itself, so
+  it would show through the page wherever a section has no background of its
+  own.
+
+  Consequence, recorded plainly: the bottom overscroll bounces cream rather than
+  the footer's orange. Accepted, not outstanding.
+*/
 
 * {
   box-sizing: border-box;
@@ -57,8 +116,9 @@ summary::-webkit-details-marker {
 /* ---------------------------------------------------------------------------
    Homepage entrance animation.
 
-   See docs/specs/STARTUP-INTRO.md. Solid orange is the base layer and the
-   gradient above it is permanent; only the mask that hides it is temporary.
+   See docs/specs/STARTUP-INTRO.md. Solid orange is the base layer — painted by
+   the scroll stage in page.tsx since 15 September 2026, not by HeroIntro — and
+   the gradient above it is permanent; only the mask that hides it is temporary.
 
    `data-intro` on <html> is the documented handle the timeline uses to drive
    the navbar, which lives in the root layout and so is outside the homepage's
@@ -288,6 +348,70 @@ html[data-intro] [data-site-floating] {
 
 @media (prefers-reduced-motion: reduce) {
   .site-logo {
+    transition: none;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   The mobile drawer's slide, and why `visibility` is in it.
+
+   The panel is `position: fixed` and full-viewport, closed by a transform. On
+   15 September 2026 it turned out that once it had been opened even once,
+   Safari 26 locked its bottom toolbar to solid permanently — the frosted
+   material never came back, at any scroll position, on any page.
+
+   An earlier fix moved the panel's background off the fixed element on the
+   theory that Safari samples `background-color`. It did not help: the element
+   has carried no background since and the fault persisted. So it is the fixed
+   LAYER that WebKit keeps, not its paint, and a transform alone does not
+   release it. `visibility: hidden` takes the element out of the rendered
+   output, which is the next thing short of `display: none`.
+
+   **If this proves insufficient, the escalation is `display: none`** at the end
+   of the transition, via `transition-behavior: allow-discrete` plus
+   `@starting-style`. Written here in plain CSS rather than as Tailwind
+   utilities precisely so that upgrade needs no new utility classes.
+
+   ── Why the transition lives here ──────────────────────────────────────────
+   One rule owns both the slide and the visibility flip. Splitting them between
+   a Tailwind `transition-*` utility and this rule would mean two declarations
+   of `transition-property`, and stylesheet order — not intent — would pick the
+   winner. That is why the element carries no transition utilities.
+
+   `translate` and not `transform`: Tailwind v4's `translate-y-*` utilities set
+   the `translate` property, which is what actually moves this panel.
+
+   ── The timing ─────────────────────────────────────────────────────────────
+   Closing: the slide waits 250ms so the rows inside have finished leaving,
+   then runs 500ms, finishing at 750ms. Visibility flips to hidden exactly
+   then — a 0s change delayed to the end, so the panel stays on screen for the
+   whole sweep and is dropped the instant it lands.
+
+   Opening: both are immediate, so the panel is visible before it starts to
+   move.
+--------------------------------------------------------------------------- */
+[data-site-drawer] {
+  visibility: hidden;
+  transition:
+    translate 500ms var(--ease-out) 250ms,
+    visibility 0s linear 750ms;
+}
+
+[data-site-drawer][data-open] {
+  visibility: visible;
+  transition:
+    translate 500ms var(--ease-out) 0ms,
+    visibility 0s linear 0ms;
+}
+
+/*
+  Reduced motion needs its own branch. The global rule above collapses
+  transition-DURATION but leaves delays intact, so without this the panel would
+  linger visible for 750ms after closing with no animation to justify it.
+*/
+@media (prefers-reduced-motion: reduce) {
+  [data-site-drawer],
+  [data-site-drawer][data-open] {
     transition: none;
   }
 }

@@ -3,19 +3,20 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 
 import HoverCursor from "@/app/_components/hover-cursor";
-import ShowreelPixels from "@/app/_components/showreel-pixels";
 import { subscribeShowreelCue } from "@/app/_lib/intro";
-import { useShowreelEntrance } from "@/app/_lib/use-showreel-entrance";
+import { useShowreelEntrance, type RevealDiagnostics } from "@/app/_lib/use-showreel-entrance";
 import { useShowreelStrip } from "@/app/_lib/use-showreel-strip";
 import {
   ADVANCE_FALLBACK_MS,
   LOAD_MARGIN,
+  PIXEL_COMPACT_MAX_PX,
   PIXEL_COVER_MAX_MS,
   PIXEL_COLUMNS,
   PIXEL_ROWS,
+  PIXEL_TARGET_CELLS,
+  PIXEL_TARGET_CELLS_COMPACT,
   pixelGrid,
   SHOWREEL,
-  SHOWREEL_MASK_ID,
   type PixelGrid,
   VISIBLE_RATIO,
 } from "@/app/_lib/showreel";
@@ -44,8 +45,15 @@ import {
 export default function Showreel() {
   const sectionRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
-  /** The `<mask>` itself, so its `<rect>` children are the animation targets. */
-  const gridRef = useRef<SVGMaskElement>(null);
+  /**
+   * The canvas the pixel entrance is painted into.
+   *
+   * Was an SVG `<mask>` referenced by `mask-image: url(#…)` until 15 September
+   * 2026. On an iPhone the entrance never drew at all; the exact WebKit
+   * mechanism is unconfirmed — see use-showreel-entrance.ts.
+   */
+  const revealRef = useRef<HTMLCanvasElement>(null);
+  const revealDiagnostics = useRef<RevealDiagnostics>({ status: "not started", frames: 0, elapsed: 0 });
   /**
    * The outgoing film, frozen, sitting UNDER the mask during a switch.
    *
@@ -243,7 +251,7 @@ export default function Showreel() {
 
   /* Centres the breadcrumb on the current name, and hands back the function
      the click handler needs to do the same on a switch. */
-  const alignToNearestCopy = useShowreelStrip({
+  const selectStripCopy = useShowreelStrip({
     controlsRef,
     index,
     reduced,
@@ -268,7 +276,17 @@ export default function Showreel() {
     const observer = new ResizeObserver(([entry]) => {
       const { width, height } = entry.contentRect;
       if (!width || !height) return;
-      const next = pixelGrid(width / height);
+      /* Fewer, bigger cells on a small rectangle. 144 of them in the ~337px
+         box a phone gives made each dot 25px with 3px between it and its
+         neighbour, so they merged and the reveal read as a fade rather than as
+         pixels — see PIXEL_TARGET_CELLS_COMPACT. Chosen from the box's real
+         width, like the arrangement itself, rather than from a breakpoint. */
+      const next = pixelGrid(
+        width / height,
+        width < PIXEL_COMPACT_MAX_PX
+          ? PIXEL_TARGET_CELLS_COMPACT
+          : PIXEL_TARGET_CELLS,
+      );
       /* Only on a real change: this fires on every resize frame, and a new
          object each time would remount the mask mid-drag. */
       setGrid((current) =>
@@ -367,6 +385,9 @@ export default function Showreel() {
         through the reveal — cutting the entrance short, which is the one
         thing it exists to prevent.
 
+    Once canReveal becomes true this timer is cancelled; the drawing hook
+    owns its own timeout. A slow load must not spend the drawing budget.
+
     With both, the budget is what it was designed to be: the whole entrance
     plus three seconds of slack, measured from the first moment it could run.
 
@@ -374,12 +395,13 @@ export default function Showreel() {
     arms and the rectangle paints immediately.
   */
   useEffect(() => {
-    if (revealDone || !mayLoad || !visible || !heroCued) return;
+    if (revealDone || !mayLoad || !visible || !heroCued || canReveal) return;
     const timer = setTimeout(() => {
+      revealDiagnostics.current.status = "media readiness timeout";
       setRevealDone(true);
     }, PIXEL_COVER_MAX_MS);
     return () => clearTimeout(timer);
-  }, [revealDone, mayLoad, visible, heroCued]);
+  }, [revealDone, mayLoad, visible, heroCued, canReveal, index]);
 
   /*
     The pixel entrance. See use-showreel-entrance.ts, and docs/specs/SHOWREEL.md.
@@ -390,10 +412,12 @@ export default function Showreel() {
   */
   const handleRevealed = useCallback(() => setRevealDone(true), []);
   useShowreelEntrance({
-    gridRef,
-    boxRef,
+    canvasRef: revealRef,
+    videoRef,
     canReveal,
     grid,
+    projectKey: index,
+    diagnosticsRef: revealDiagnostics,
     onRevealed: handleRevealed,
   });
 
@@ -423,12 +447,14 @@ export default function Showreel() {
     return true;
   };
 
-  const selectProject = (next: number) => {
-    /* Both of these run before any state changes, and both must: the frame
-       has to be captured before `src` is reassigned, and the strip has to be
-       aligned before the centring effect scrolls it. */
+  const selectProject = (next: number, fromCopy?: number) => {
+    if (next === index) return;
+    revealDiagnostics.current = { status: "waiting for media", frames: 0, elapsed: 0 };
+    /* Capture the outgoing frame before src changes. Remember the pressed
+       strip copy so the next effect travels to it, then rebases after motion.
+       Automatic advances select the next occurrence on the right. */
     setHolding(captureHold());
-    alignToNearestCopy(next);
+    selectStripCopy(next, fromCopy);
     setIndex(next);
     /* New media, so the poster returns until its first frame is in place.
        Reset here rather than in an effect watching `index`: this is the only
@@ -684,28 +710,22 @@ export default function Showreel() {
           />
 
           {/*
-            Everything the mask acts on, and only that. It sits inside the
-            shape wrapper rather than on it so the held frame above is left
-            alone — masking the wrapper would take the outgoing film with the
-            incoming one and the rectangle would go blank mid-switch.
+            The film and its poster, and only those. It sits inside the shape
+            wrapper rather than on it so the held frame above is left alone —
+            hiding the wrapper would take the outgoing film with the incoming
+            one and the rectangle would go blank mid-switch.
 
-            The mask arrives in the same commit that renders it, with every
-            cell already at opacity 0, so the first painted frame is empty
-            rather than a flash of video. Written as both properties because
-            the unprefixed form is not universally resolved for a reference to
-            an inline `<mask>`; verified working in Chrome and Safari before
-            this was built.
+            Hidden, not unmounted, for the whole entrance. The canvas below is
+            what the visitor sees during the reveal, and it reads its frames
+            from this element with `drawImage` — so the video has to stay laid
+            out, playing and decoding. `opacity-0` does that; `hidden` would
+            stop it rendering on iOS and the canvas would have nothing to draw.
+
+            It goes opaque in the same commit that unmounts the canvas, so the
+            handover is one paint with nothing in between.
           */}
           <div
-            className="absolute inset-0"
-            style={
-              showPixels
-                ? {
-                    maskImage: `url(#${SHOWREEL_MASK_ID})`,
-                    WebkitMaskImage: `url(#${SHOWREEL_MASK_ID})`,
-                  }
-                : undefined
-            }
+            className={`absolute inset-0 ${showPixels ? "opacity-0" : ""}`}
           >
           {/*
             Decorative. It carries no controls, and nothing in it is available
@@ -749,23 +769,31 @@ export default function Showreel() {
             />
           ) : null}
           </div>
-          </div>
 
-          {/* Paints nothing itself — a `<defs>` holding the mask the wrapper
-              above references. Rendered only while the entrance is live, so
-              dropping it is what returns the video to normal. */}
-          {/* Keyed on the project so a switch remounts it. That is what
-              guarantees every cell starts hidden again: without the key the
-              nodes would survive with whatever opacity the last entrance left
-              them at, and a switch made mid-entrance would show the new film
-              in full before the pixels took it back. */}
+          {/*
+            The entrance itself.
+
+            Inside the shape wrapper so the rounded corners clip it exactly as
+            they clip the film, and painted only while the reveal is live —
+            unmounting it is what returns the rectangle to the real video.
+
+            Keyed on the project and the arrangement so a switch or a resize
+            starts from a blank canvas rather than from whatever the last
+            entrance left on it.
+
+            Where no cell has arrived the canvas is genuinely transparent, so
+            the hero's gradient shows straight through it. Nothing is ever
+            painted over the film.
+          */}
           {showPixels ? (
-            <ShowreelPixels
+            <canvas
               key={`${index}-${grid.columns}x${grid.rows}`}
-              ref={gridRef}
-              grid={grid}
+              ref={revealRef}
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-0 size-full"
             />
           ) : null}
+          </div>
 
           {/* The hover cursor. The LAST CHILD of the media box, and it has to
               be inside it: the circle is `absolute`, so its containing block is
@@ -928,7 +956,7 @@ export default function Showreel() {
                       type="button"
                       data-copy={copy}
                       data-entry={entryIndex}
-                      onClick={() => selectProject(entryIndex)}
+                      onClick={() => selectProject(entryIndex, copy)}
                       aria-current={real && active ? "true" : undefined}
                       aria-hidden={real ? undefined : true}
                       tabIndex={real ? undefined : -1}
@@ -985,6 +1013,7 @@ export default function Showreel() {
           </div>
         </div>
       </div>
+
     </div>
   );
 }
