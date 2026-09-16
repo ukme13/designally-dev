@@ -13,6 +13,7 @@ import ClientLogoStrip from "@/app/_components/client-logo-strip";
 import CtaRow from "@/app/_components/cta-row";
 import CountUp from "@/app/_components/count-up";
 import InsightCard from "@/app/_components/insight-card";
+import RevealOnView from "@/app/_components/reveal-on-view";
 import SectionTitle from "@/app/_components/section-title";
 import ServiceRows from "@/app/_components/service-rows";
 import ShowcaseLoop from "@/app/_components/showcase-loop";
@@ -43,8 +44,14 @@ export const metadata: Metadata = {
 async function FeaturedInsightCards() {
   const featuredInsights = await getFeaturedInsights();
 
+  /* Each card reveals as it arrives rather than the row arriving together —
+     the cards stack on a phone, so a shared trigger would run all three while
+     two of them were still far below the fold. `reveal-fill` keeps the card
+     filling the wrapper, which is the grid item now. */
   return featuredInsights.map((insight) => (
-    <InsightCard key={insight.title} insight={insight} />
+    <RevealOnView key={insight.title} className="reveal-fill">
+      <InsightCard insight={insight} />
+    </RevealOnView>
   ));
 }
 
@@ -785,7 +792,7 @@ export default function Home() {
           trick is that the finished cover is indistinguishable from the section
           arriving, which is also why the layer reaches UP past the section
           rather than sitting over it. See pixel-wipe.tsx. */}
-      <section className="relative isolate border-y border-border-default bg-surface-raised min-h-screen">
+      <section className="relative isolate bg-surface-raised min-h-screen">
         <PixelWipe surface="bg-surface-raised" />
         <div className="mx-auto grid w-full max-w-page gap-x-12 gap-y-32 px-gutter-mobile pt-4 pb-section-mobile md:px-gutter-tablet md:pb-section-tablet lg:grid-cols-12 xl:px-gutter-desktop">
           {/* The proof point, then the section's heading. The DOM order is
@@ -861,7 +868,7 @@ export default function Home() {
           }
         />
         <div className="mx-auto w-full max-w-page px-gutter-mobile md:px-gutter-tablet xl:px-gutter-desktop">
-          <div className="mt-16 grid gap-6 md:grid-cols-3">
+          <div className="mt-16 grid gap-6 sm:gap-10 md:grid-cols-3">
             <FeaturedInsightCards />
           </div>
           {/* Stacked layouts: the same link, after the cards instead. */}

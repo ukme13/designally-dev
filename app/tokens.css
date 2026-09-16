@@ -178,27 +178,34 @@
     }
   }
 
-  --animate-scribble: scribble 2s ease-in-out infinite;
+  --animate-scribble: scribble 1.6s ease-out forwards;
 
-  /* Draws the loop as if it were being written, holds, then fades out and
-     starts over. `pathLength="1"` on the path normalises its length, so the
-     offset can run 1 -> 0 without knowing the real curve length. */
+  /* Draws the loop as if it were being written, and then STAYS.
+     `pathLength="1"` on the path normalises its length, so the offset can run
+     1 -> 0 without knowing the real curve length.
+
+     **It used to loop, and that was reported as a bug on 16 September 2026.**
+     The old keyframes drew to 40%, held to 65%, faded to `opacity: 0` by 100%
+     and began again. That is a reasonable flourish for something glimpsed once,
+     but this sits in the footer, where it is on screen long enough to cycle
+     repeatedly — and a circle completing, blinking out and redrawing itself
+     reads as a fault rather than as decoration.
+
+     `forwards` with a single pass holds the finished state, which is what a
+     hand-drawn underline does.
+
+     KNOWN LIMIT: a CSS animation starts when the element is rendered, not when
+     it is seen. The footer is far below the fold, so the draw has almost always
+     finished before anyone scrolls to it and the loop simply appears already
+     drawn. Making it draw ON ARRIVAL means an IntersectionObserver, which would
+     turn site-footer.tsx into a Client Component — it is deliberately a Server
+     Component today. */
   @keyframes scribble {
-    0% {
+    from {
       stroke-dashoffset: 1;
-      opacity: 1;
     }
-    40% {
+    to {
       stroke-dashoffset: 0;
-      opacity: 1;
-    }
-    65% {
-      stroke-dashoffset: 0;
-      opacity: 1;
-    }
-    100% {
-      stroke-dashoffset: 0;
-      opacity: 0;
     }
   }
 

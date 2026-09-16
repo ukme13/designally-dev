@@ -434,3 +434,104 @@ html[data-intro] [data-site-floating] {
     transition: none;
   }
 }
+
+/*
+  The statement lines fade out at the foot of the hero rather than being cut.
+
+  The lines are positioned from the bottom — the first sits at `bottom-[20%]`
+  and its type runs to `clamp(7rem, 12vw, 20rem)` — while the hero root clips
+  with `overflow-hidden`. The largest lettering therefore met the bottom edge
+  as a hard horizontal cut. This fades the final stretch of the box instead.
+
+  Written here as plain CSS rather than as a Tailwind arbitrary property on the
+  element: a utility that matches no rule compiles to nothing AND raises no
+  error, and the production build could not be run to confirm it at the time
+  this was added. A real declaration cannot fail that way.
+
+  Applied to the statement block, never to the hero root — the root carries
+  `intro-gradient`, and a mask there would fade the hero's background with it.
+
+  80% is where the fade begins, as a share of the hero's height: take it toward
+  100% for a tighter, harder edge, or down for a longer dissolve. Both
+  properties are set; Safari has supported the unprefixed form since 15.4, and
+  the prefixed one costs nothing for older engines.
+
+  **It started at 88% and that was too tight for the third line.** That line is
+  `bottom-[-8%]` with type running to 20rem, so at 1920x1080 its glyph TOPS land
+  at roughly 88% of the hero: the whole letterform sat inside the last twelfth
+  of the gradient and dropped to nothing almost at once, which still read as a
+  cut rather than a fade. 80% gives it about twice the distance to dissolve
+  over, and the first two lines sit high enough to be barely affected.
+*/
+.intro-statement {
+  -webkit-mask-image: linear-gradient(to bottom, #000 80%, transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 80%, transparent 100%);
+  /*
+    `no-repeat` is NOT optional, and leaving it out is why the third line still
+    cut hard after the first attempt.
+
+    `mask-repeat` defaults to `repeat`. The third line is `bottom-[-8%]`, so it
+    hangs BELOW this element's box on purpose — and a repeating mask tiles the
+    gradient down there, starting opaque again. That stretch was painted at full
+    strength and then chopped by the root's `overflow-hidden`. The first two
+    lines sit inside the box, so they faded correctly and hid the fault.
+
+    With `no-repeat` everything past the box is simply outside the mask and
+    therefore transparent, so the line fades out at the boundary the root was
+    cutting at anyway.
+  */
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+}
+
+/* ---------------------------------------------------------------------------
+   Reveal on arrival — driven by reveal-on-view.tsx.
+
+   The attribute is written by JavaScript before paint and removed on cleanup,
+   so an element with no attribute is simply visible. That is the state the
+   server sends and the state a visitor without JavaScript keeps.
+
+   `translate` as its own property rather than inside a `transform`, matching
+   the rest of the site: Tailwind v4 writes the standalone properties, and a
+   `transform` here would fight anything that also sets one.
+--------------------------------------------------------------------------- */
+
+/*
+  `data-appear`, and NOT `data-reveal`, which is already taken.
+
+  `masked-text.tsx` sets `dataset.reveal` to `hidden` or `in` on its own roots
+  and styles its lines through `group-data-[reveal=...]`. These rules began on
+  that same attribute: the VALUES never collided, so nothing broke on screen,
+  but the bare `[data-reveal]` selector was quietly adding a transition to every
+  MaskedText root in the site. Caught by reading the emitted stylesheet and
+  finding four rules for an attribute this file had only just introduced.
+*/
+
+[data-appear] {
+  transition:
+    opacity 600ms var(--ease-out),
+    translate 600ms var(--ease-out);
+}
+
+[data-appear="pending"] {
+  opacity: 0;
+  translate: 0 1.5rem;
+}
+
+[data-appear="shown"] {
+  opacity: 1;
+  translate: none;
+}
+
+/*
+  The wrapper takes the child's place as the grid item, so the card inside has
+  to fill it or the row stops having equal heights.
+
+  Plain CSS rather than an arbitrary Tailwind variant on the element: a utility
+  that matches nothing compiles to nothing AND raises no error, and the
+  production build could not be run to confirm it when this was written.
+*/
+.reveal-fill,
+.reveal-fill > * {
+  height: 100%;
+}

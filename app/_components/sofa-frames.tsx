@@ -12,6 +12,10 @@ import { useEffect, useRef, useState } from "react";
  * swapping the `src` on one element would show a blank while the second file
  * loaded, and the first swap is the one that matters.
  *
+ * **Mounting both is necessary and NOT sufficient** — see the note on
+ * `loading` below. It was mounted and still blanked, because a hidden element
+ * is invisible to the lazy-loading heuristic.
+ *
  * ── The knobs ────────────────────────────────────────────────────────────
  *   size          FRAME_SIZE
  *   when it turns TRIGGER_MARGIN
@@ -97,6 +101,29 @@ export default function SofaFrames() {
           width={FRAME_INTRINSIC}
           height={FRAME_INTRINSIC}
           unoptimized
+          /*
+            `eager`, and it is load-bearing.
+
+            `next/image` defaults to `loading="lazy"`, which defers the fetch
+            until the element nears the viewport. The waiting frame is `hidden`
+            — `display: none` — so it has no box, never approaches anything,
+            and was therefore not fetched until the swap revealed it. The first
+            turn showed a blank while 40KB downloaded: exactly the fault that
+            mounting both frames was meant to prevent.
+
+            `eager` rather than `preload`. The installed Next 16 docs describe
+            `preload` as inserting a `<link>` in the `<head>` for the LCP
+            element, and say to use `loading="eager"` in most other cases; this
+            page's resource-hint order is already delicate, see the note on
+            FeaturedInsightCards in page.tsx. `priority` is deprecated in 16.
+
+            On BOTH frames, not just the hidden one: which frame is hidden
+            follows `lit`'s initial state, so pinning this to frame two would
+            move the bug the first time that default changed. The cost is 25KB
+            and 40KB of vector fetched early, below the fold, on a page whose
+            hero loads a video.
+          */
+          loading="eager"
           /* Both mounted, one hidden. `hidden` rather than `opacity-0` so the
              hidden frame is genuinely not painted — there is no transition to
              be seen through. */
