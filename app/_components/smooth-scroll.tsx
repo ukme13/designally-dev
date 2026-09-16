@@ -40,6 +40,27 @@ import "lenis/dist/lenis.css";
  * frame, so the second loop costs a frame of alignment at worst. Revisit if
  * that shows as jitter against the sticky stage.
  */
+/**
+ * How closely the animated scroll position follows the real one, per frame.
+ *
+ * Lenis's default is `0.1` (confirmed in the installed 1.3.26 source, the
+ * `lerp = .1` default in its constructor). LOWER means the page takes longer
+ * to catch up to the input, which is what reads as weight and glide — 0.075
+ * lengthens the settle by roughly a third without becoming slippery.
+ *
+ * **This changes the wheel, not the phone.** `syncTouch` defaults to `false`,
+ * so touch scrolling is left entirely to the platform and keeps iOS's own
+ * momentum. Turning it on would hand touch to Lenis and override that; it is
+ * deliberately not done here.
+ *
+ * It also does not slow any scroll-driven animation down. Every one of them is
+ * scrubbed to scroll POSITION, so the mapping from distance to progress is
+ * unchanged — what changes is how quickly the position itself moves after an
+ * input. To make a particular animation pass more slowly, widen its own scroll
+ * range instead, the way `SECTION_FILL_VH` does in use-pixel-wipe.ts.
+ */
+const SCROLL_LERP = 0.075;
+
 export default function SmoothScroll() {
-  return <ReactLenis root />;
+  return <ReactLenis root options={{ lerp: SCROLL_LERP }} />;
 }

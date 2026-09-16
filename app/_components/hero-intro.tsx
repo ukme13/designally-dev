@@ -69,8 +69,19 @@ import { INTRO } from "@/app/_lib/intro";
   Keep 64rem / `lg` in step across those files and the pre-paint script in
   layout.tsx.
 */
+/*
+  `intro-statement` carries the bottom fade, and it lives in globals.css as
+  real CSS rather than an arbitrary Tailwind property.
+
+  The lines are placed from the BOTTOM — the first is `bottom-[20%]` at up to
+  20rem of type — and the root clips them with `overflow-hidden`, so the
+  largest lettering met the foot of the hero as a hard cut. The mask fades
+  the last stretch of the box instead. It belongs on THIS element and not on
+  the root: the root also holds `intro-gradient`, and masking there would
+  fade the hero background itself.
+*/
 const STATEMENT_BLOCK =
-  "absolute inset-0 hidden pointer-events-none opacity-30 lg:block";
+  "intro-statement absolute inset-0 hidden pointer-events-none opacity-30 lg:block";
 
 /**
  * The three lines, in line identity order — one, two, three.

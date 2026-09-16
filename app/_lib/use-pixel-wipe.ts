@@ -127,24 +127,45 @@ const WAVE = { axis: "y", from: "end" } as const;
 /**
  * When the wipe runs, in ScrollTrigger's "<edge> <viewport position>" syntax.
  *
- * `START_LEAD` pushes the start earlier by that many pixels, so the first rows
- * of dots appear while the boundary is still below the fold. Without it the
- * wave began exactly as the hard edge between the two sections came into view,
- * and you watched it start rather than finding it already under way.
+ * Both are measured from the layer's BOTTOM, which is exactly the target
+ * section's top edge, and both are a PERCENTAGE OF THE VIEWPORT — so the
+ * transition occupies the same fraction of a screen on every device.
  *
- * Both measured from the layer's BOTTOM, which is exactly the target section's
- * top edge — so the wipe starts as that edge appears at the foot of the screen
- * and finishes as it reaches the MIDDLE of it. Half a screen of scrolling, all
- * of it spent looking at the boundary, and the cover is complete while the
- * section's heading is still below the fold.
+ * **Percentages rather than pixels, changed 16 September 2026.** The lead used
+ * to be a flat `100px`: about a ninth of a short laptop screen and a
+ * twentieth of a tall desktop one, so the wave began at a different point in
+ * the scroll at every size. ScrollTrigger resolves a `%` in this position
+ * against the scroller's own size (`_parsePosition` in the installed
+ * ScrollTrigger.js), and its `_keywords` map `center` to exactly 0.5 — so the
+ * previous `bottom center` was `bottom 50%`, and the two figures below are
+ * directly comparable to what they replaced.
  *
- * `top bottom` was wrong for the same reason: the layer sits a full screen above
- * the section, so measuring from its top fired the transition a screen early,
- * before there was anything to transition to.
+ * `START_LEAD_VH` begins the wave while the boundary is still below the fold,
+ * so it is already under way when it comes into view rather than starting in
+ * front of the reader. At 20 the transition spans 95% of a screen, so the
+ * stagger is scrubbed across nearly a full viewport of scrolling.
+ *
+ * `SECTION_FILL_VH` is how much of the screen the arriving section fills when
+ * the cover is complete. **At 75 the transition spans 85% of a screen, against
+ * roughly 60% before**, so the same stagger is scrubbed across noticeably more
+ * scrolling and the wave reads slower. That is the knob for this: lower it
+ * toward 50 to finish earlier and move faster, raise it to draw the boundary
+ * out further.
+ *
+ * The cover now completes with the section's heading likely on screen rather
+ * than below the fold, which is the visible consequence of finishing later.
+ *
+ * `top bottom` is wrong for a different reason: the layer sits a full screen
+ * above the section, so measuring from its top fires the transition a screen
+ * early, before there is anything to transition to.
  */
-const START_LEAD = 100;
-const TRANSITION_START = `bottom bottom+=${START_LEAD}`;
-const TRANSITION_END = "bottom center";
+/** How far below the fold the wave begins, as a percentage of the viewport. */
+const START_LEAD_VH = 20;
+/** How much of the screen the arriving section fills when the cover is done. */
+const SECTION_FILL_VH = 75;
+
+const TRANSITION_START = `bottom ${100 + START_LEAD_VH}%`;
+const TRANSITION_END = `bottom ${100 - SECTION_FILL_VH}%`;
 
 export function usePixelWipe({
   layerRef,

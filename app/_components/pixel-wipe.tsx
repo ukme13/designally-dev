@@ -104,15 +104,54 @@ const PIXEL_ROWS = 12;
 /**
  * How far the wipe reaches ABOVE the section it belongs to, by default.
  *
- * A full screen, so the layer's bottom edge lands exactly on the section's top
- * edge and none of it overlaps the section it is a transition into. At half a
- * screen it covered the heading, which is the one thing a transition must not
- * do.
+ * **THIS MUST EQUAL THE LAYER'S HEIGHT**, which is the real rule behind the
+ * old note that "at half a screen it covered the heading". That failure was a
+ * 100svh layer lifted only 50svh: the excess hung over the section and hid its
+ * heading, which is the one thing a transition must not do. Matched to the
+ * height, the layer's bottom edge lands exactly on the section's top edge and
+ * none of it overlaps.
+ *
+ * **50svh, reduced from 100svh on 16 September 2026, and the reason is
+ * geometry rather than taste.** The layer is `absolute` inside the section, so
+ * it scrolls with the page at 1:1 while the wave also travels up through it.
+ * Those speeds ADD, and the wave's leading edge climbs the screen at roughly
+ * twice the scroll:
+ *
+ *     front = boundary − (wave fraction × layer height)
+ *
+ * At a full screen that was `1.2 − 1.95p`, so the edge left the top of the
+ * viewport at p ≈ 0.62 — the cover looked finished while the arriving section
+ * was barely past half the screen, and the last 38% of the scroll range
+ * animated above the fold where nobody could see it. Widening the trigger
+ * range made it marginally worse, not better: the exit moved from 69% down the
+ * screen to 62%.
+ *
+ * At 50svh the same expression is `1.2 − 1.45p`, so the edge survives to
+ * p ≈ 0.83 with the boundary 41% down — the wave is visible for about 69% of
+ * the range instead of half of it.
+ *
+ * **30svh was tried first and produced ELLIPSES, which is why it is not 30.**
+ * The grid is measured from this layer, and `pixelGrid` clamps at 32 columns.
+ * A band that short is wide enough (aspect ~5.9 at 1920x1080) that no
+ * arrangement inside the clamp fits the cell budget, so the search falls
+ * through to its fallback formula — which tiles the box but does not keep
+ * cells square. Measured: 32x9 cells of 60x36, a ratio of 1.67, and the dots
+ * are drawn with `rounded-full`, so they rendered as flat ovals. At 50svh the
+ * same arithmetic lands on 32x9 cells of 60x60, ratio 1.00, on every viewport
+ * checked (1920x1080, 1440x900, 2560x1440). **Shortening this further brings
+ * the ovals back** — if a shorter band is ever wanted, the density has to come
+ * down with it so the search stays inside its clamp.
+ *
+ * The cost, accepted: the cover band is half a screen rather than a whole one,
+ * so the arriving section appears to turn up 50svh early instead of a full
+ * screen early, and the outgoing colour stays visible above the wave for
+ * longer.
  *
  * A Tailwind class rather than a number so it can use `svh`, the unit sections
- * are measured in. Override it where a boundary needs a different reach.
+ * are measured in. Override it where a boundary needs a different reach — and
+ * change `h-[50svh]` on the stage to match when you do.
  */
-const DEFAULT_LIFT = "-top-[100svh]";
+const DEFAULT_LIFT = "-top-[50svh]";
 
 /**
  * Roughly how many cells the wipe aims for, whatever shape it has to fill.
@@ -127,6 +166,24 @@ const DEFAULT_LIFT = "-top-[100svh]";
  */
 const DEFAULT_DENSITY = 288;
 
+/**
+ * The count used when the layer is narrow, which in practice means a phone.
+ *
+ * Fewer, bigger circles. The same reasoning as the showreel's
+ * `PIXEL_TARGET_CELLS_COMPACT`, and the same failure it fixes: a count tuned
+ * for a monitor puts the same number of cells across a 390px screen, so each
+ * one lands at roughly 24px and the wave reads as grain rather than as pixels.
+ * At 120 a phone resolves to about 10x11 and a cell is nearer 39px.
+ *
+ * Chosen from the layer's measured width rather than from a breakpoint, for the
+ * reason the grid itself is measured: this layer's shape comes from the
+ * viewport, not from a container query.
+ */
+const COMPACT_DENSITY = 120;
+
+/** Layer widths below this use the compact count, in CSS pixels. */
+const COMPACT_MAX_PX = 480;
+
 type PixelWipeProps = {
   /**
    * The wipe's colour, as a Tailwind background utility.
@@ -137,14 +194,20 @@ type PixelWipeProps = {
   surface: string;
   /** How far it reaches above the section. Defaults to a full screen. */
   lift?: string;
-  /** Roughly how many cells. Higher is denser and smaller. */
+  /**
+   * Roughly how many cells. Higher is denser and smaller.
+   *
+   * Left unset it is chosen from the layer's measured width — COMPACT_DENSITY
+   * on a phone, DEFAULT_DENSITY above that. Passing a number overrides both,
+   * at every size.
+   */
   density?: number;
 };
 
 export default function PixelWipe({
   surface,
   lift = DEFAULT_LIFT,
-  density = DEFAULT_DENSITY,
+  density,
 }: PixelWipeProps) {
   const layerRef = useRef<HTMLDivElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
@@ -171,7 +234,11 @@ export default function PixelWipe({
     const measure = () => {
       const { width, height } = layer.getBoundingClientRect();
       if (width <= 0 || height <= 0) return;
-      const next = pixelGrid(width / height, density);
+      /* An explicit prop wins at every size; otherwise the width decides, so a
+         phone gets fewer and bigger circles than a monitor. */
+      const target =
+        density ?? (width < COMPACT_MAX_PX ? COMPACT_DENSITY : DEFAULT_DENSITY);
+      const next = pixelGrid(width / height, target);
       /* Replaced only when it actually changes, so a resize drag does not
          remount the grid on every frame. */
       setGrid((current) =>
@@ -204,12 +271,16 @@ export default function PixelWipe({
       ref={layerRef}
       aria-hidden="true"
       /*
-        The stage. `h-svh` so the wipe is the size of the screen it covers, and
+        The stage. `h-[50svh]` is the band the wipe covers, and it must stay in
+        step with DEFAULT_LIFT above — the lift is what puts this box's BOTTOM
+        on the section's top edge, so a height that disagrees with it either
+        overlaps the section's heading or leaves a gap at the boundary.
+
         `overflow-hidden` so a pixel travelling upward cannot widen the page —
         `yPercent` moves it outside this box, and without the clip that becomes
         a scrollbar.
       */
-      className={`pointer-events-none absolute inset-x-0 z-10 h-svh overflow-hidden ${lift}`}
+      className={`pointer-events-none absolute inset-x-0 z-10 h-[50svh] overflow-hidden ${lift}`}
     >
       {/*
         The primary lattice: one circle per cell, filling the layer exactly.

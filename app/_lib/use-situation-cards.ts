@@ -111,6 +111,14 @@ const CONTENT_DURATION = 0.4;
  */
 const SCROLL_START = "top 85%";
 /**
+ * Where the cards stop stacking and sit side by side.
+ *
+ * Matches `lg:grid-cols-3` on the grid in situation-cards.tsx, and 64rem is the
+ * same `lg` the rest of the site uses. Keep them in step: this decides whether
+ * the three cards share one arrival or each get their own.
+ */
+const SIDE_BY_SIDE = "(min-width: 64rem)";
+/**
  * Easings, both taken from the design tokens rather than written here. See
  * app/_lib/css-ease.ts for why they are read from the document.
  *
@@ -230,119 +238,171 @@ export function useSituationCards({
         handing the timeline to ScrollTrigger would have it play and rewind on
         all of them.
       */
-      const timeline = gsap.timeline({ paused: true });
-
       /*
-        `fromTo`, and it has to be — `to` alone does not spin.
+        ONE ARRIVAL PER CARD WHEN THEY STACK, one for the row when they do not.
 
-        A `to` tween reads its start value off the element, and for a transform
-        that means the computed MATRIX. A matrix cannot record how many times
-        something has been turned: `rotateY(-1080deg)` and `rotateY(0deg)`
-        produce exactly the same one. So GSAP read the pre-paint start as 0,
-        animated it to 0, and the cards rose without ever spinning.
+        Below `lg` the grid is a single column, so the three cards are a long
+        way apart. A single trigger on the grid — which is what this was — fires
+        when the GRID reaches `top 85%`, and the stagger then runs all three
+        while cards two and three are still far below the fold. Scrolling down
+        to them arrived at animations that had finished minutes of screen ago.
+        Reported on a phone, 16 September 2026.
 
-        Stating the start explicitly keeps all three turns, because GSAP then
-        stores the number itself rather than inferring it from the element.
+        Side by side the opposite is true: all three are on screen together, and
+        the stagger is the whole effect. So the shape of the arrival follows the
+        shape of the layout.
 
-        The pre-paint CSS start stays as it is. It renders identically to the
-        `from` values here — three full turns look like none — so there is no
-        jump when GSAP takes over, and it is still what a visitor sees if the
-        import never resolves.
+        The trigger for a stacked card is its `<article>`, never the flipper.
+        The flipper is held at `translateY(CARD_ENTRY_Y)` — 180px — while it
+        waits, and ScrollTrigger measures the element it is given, so using it
+        would offset every start by that much. The article is never transformed.
+
+        Read once, like the reduced-motion query above: a viewport dragged
+        across the breakpoint keeps the arrangement it was built with until the
+        component remounts. Rotating a phone cannot cross 64rem, and a desktop
+        resize that does is not worth rebuilding three timelines for.
       */
-      timeline.fromTo(
-        flippers,
-        {
-          y: CARD_ENTRY_Y,
-          rotationY: CARD_ENTRY_ROTATION,
-          rotationZ: CARD_ENTRY_TILT,
-          scale: CARD_ENTRY_SCALE,
-        },
-        {
-          y: 0,
-          rotationY: CARD_REST_ROTATION,
-          rotationZ: 0,
-          scale: 1,
-          duration: CARD_DURATION,
-          stagger: CARD_STAGGER,
-          ease: cardEase,
-        },
-      );
+      const stacked = !window.matchMedia(SIDE_BY_SIDE).matches;
+      const groups = stacked
+        ? flippers.map((flipper, index) => ({
+            cards: [flipper],
+            /* Index-matched to the flippers. Both arrays are filtered for nulls
+               by `present`, so this pairs correctly whenever every card
+               rendered — which is every case that is not a mid-unmount frame. */
+            copy: copies[index] ? [copies[index]] : [],
+            trigger: flipper.closest("article") ?? flipper,
+            /* A group of one has nothing to stagger against. */
+            stagger: 0,
+          }))
+        : [
+            {
+              cards: flippers,
+              copy: copies,
+              trigger: root as Element,
+              stagger: CARD_STAGGER,
+            },
+          ];
 
-      /*
-        The fade is its own tween, deliberately kept out of the one above.
+      const teardowns = groups.map((group) => {
+        const timeline = gsap.timeline({ paused: true });
 
-        The card's own curve is slow at both ends, and a fade that crawls in
-        at the start reads as a card that is late rather than one that is
-        arriving. Linear over the first half of the drop instead, which has it
-        solid well before it lands. Its start needs no stating: unlike a
-        rotation, opacity is read back from the element exactly.
-      */
-      timeline.to(
-        flippers,
-        {
-          opacity: 1,
-          duration: CARD_DURATION / 2,
-          stagger: CARD_STAGGER,
-          ease: "none",
-        },
-        0,
-      );
+        /*
+          `fromTo`, and it has to be — `to` alone does not spin.
 
-      /*
-        Positioned at an ABSOLUTE time, and that is the whole difference.
+          A `to` tween reads its start value off the element, and for a transform
+          that means the computed MATRIX. A matrix cannot record how many times
+          something has been turned: `rotateY(-1080deg)` and `rotateY(0deg)`
+          produce exactly the same one. So GSAP read the pre-paint start as 0,
+          animated it to 0, and the cards rose without ever spinning.
 
-        `+=` measures from the end of the timeline SO FAR — which, once the
-        cards carry a stagger, is when the LAST card lands. So card 01's copy
-        sat waiting for card 03, and the section read as a long pause before
-        anything said what it was.
+          Stating the start explicitly keeps all three turns, because GSAP then
+          stores the number itself rather than inferring it from the element.
 
-        `CARD_DURATION + CONTENT_DELAY` starts this tween as the FIRST card
-        lands, and giving it the cards' own stagger means every card's copy
-        follows its own card by exactly CONTENT_DELAY. Each column fills in as
-        it arrives rather than all three waiting for the slowest.
-      */
-      timeline.to(
-        copies,
-        {
-          opacity: 1,
-          y: 0,
-          duration: CONTENT_DURATION,
-          stagger: CARD_STAGGER,
-          ease: copyEase,
-        },
-        CARD_DURATION + CONTENT_DELAY,
-      );
+          The pre-paint CSS start stays as it is. It renders identically to the
+          `from` values here — three full turns look like none — so there is no
+          jump when GSAP takes over, and it is still what a visitor sees if the
+          import never resolves.
+        */
+        timeline.fromTo(
+          group.cards,
+          {
+            y: CARD_ENTRY_Y,
+            rotationY: CARD_ENTRY_ROTATION,
+            rotationZ: CARD_ENTRY_TILT,
+            scale: CARD_ENTRY_SCALE,
+          },
+          {
+            y: 0,
+            rotationY: CARD_REST_ROTATION,
+            rotationZ: 0,
+            scale: 1,
+            duration: CARD_DURATION,
+            stagger: group.stagger,
+            ease: cardEase,
+          },
+        );
 
-      /*
-        Two of the four crossings are handled, and the other two deliberately
-        are not.
+        /*
+          The fade is its own tween, deliberately kept out of the one above.
 
-          onEnter       coming down to it       -> run forwards
-          onLeaveBack   going up past it        -> run BACKWARDS
-          onLeave       going down past it      -> ignored; leave them landed
-          onEnterBack   coming back up to it    -> ignored; they are already in
+          The card's own curve is slow at both ends, and a fade that crawls in
+          at the start reads as a card that is late rather than one that is
+          arriving. Linear over the first half of the drop instead, which has it
+          solid well before it lands. Its start needs no stating: unlike a
+          rotation, opacity is read back from the element exactly.
+        */
+        timeline.to(
+          group.cards,
+          {
+            opacity: 1,
+            duration: CARD_DURATION / 2,
+            stagger: group.stagger,
+            ease: "none",
+          },
+          0,
+        );
 
-        `reverse()` and not `pause(0)`. Seeking to zero is instantaneous, so
-        scrolling up made the cards vanish between one frame and the next;
-        reversing plays the same timeline backwards, and the copy fades out
-        before the cards turn away and drop. The arrival undone, rather than
-        cancelled.
+        /*
+          Positioned at an ABSOLUTE time, and that is the whole difference.
 
-        Neither call takes a time argument, which is what makes changing your
-        mind mid-flight work: `play()` and `reverse()` both continue from
-        wherever the playhead already is, so scrolling down through a
-        half-finished exit picks the cards back up instead of restarting them.
-      */
-      const trigger = ScrollTrigger.create({
-        trigger: root,
-        start: SCROLL_START,
-        onEnter: () => timeline.play(),
-        onLeaveBack: () => timeline.reverse(),
+          `+=` measures from the end of the timeline SO FAR — which, once the
+          cards carry a stagger, is when the LAST card lands. So card 01's copy
+          sat waiting for card 03, and the section read as a long pause before
+          anything said what it was.
+
+          `CARD_DURATION + CONTENT_DELAY` starts this tween as the FIRST card
+          lands, and giving it the cards' own stagger means every card's copy
+          follows its own card by exactly CONTENT_DELAY. Each column fills in as
+          it arrives rather than all three waiting for the slowest.
+        */
+        timeline.to(
+          group.copy,
+          {
+            opacity: 1,
+            y: 0,
+            duration: CONTENT_DURATION,
+            stagger: group.stagger,
+            ease: copyEase,
+          },
+          CARD_DURATION + CONTENT_DELAY,
+        );
+
+        /*
+          Two of the four crossings are handled, and the other two deliberately
+          are not.
+
+            onEnter       coming down to it       -> run forwards
+            onLeaveBack   going up past it        -> run BACKWARDS
+            onLeave       going down past it      -> ignored; leave them landed
+            onEnterBack   coming back up to it    -> ignored; they are already in
+
+          `reverse()` and not `pause(0)`. Seeking to zero is instantaneous, so
+          scrolling up made the cards vanish between one frame and the next;
+          reversing plays the same timeline backwards, and the copy fades out
+          before the cards turn away and drop. The arrival undone, rather than
+          cancelled.
+
+          Neither call takes a time argument, which is what makes changing your
+          mind mid-flight work: `play()` and `reverse()` both continue from
+          wherever the playhead already is, so scrolling down through a
+          half-finished exit picks the cards back up instead of restarting them.
+        */
+        const trigger = ScrollTrigger.create({
+          trigger: group.trigger,
+          start: SCROLL_START,
+          onEnter: () => timeline.play(),
+          onLeaveBack: () => timeline.reverse(),
+        });
+
+
+        return () => {
+          trigger.kill();
+          timeline.kill();
+        };
       });
 
       revert = () => {
-        trigger.kill();
-        timeline.kill();
+        for (const teardown of teardowns) teardown();
       };
     };
 

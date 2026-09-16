@@ -167,14 +167,28 @@ export default function ServiceRows({
           className={`border-t border-text-on-accent/25 ${surface}`}
         >
           <div className={PAGE_INSET}>
-            <div className={`${PAD.top} ${PAD.bottom} ${GRID}`}>
+            {/* `max-lg:flex max-lg:flex-col` exists only to give the three
+                parts an order below `lg`, where there is no grid — the picture
+                is moved ahead of the words, so a phone meets the illustration
+                before the description rather than after it.
+
+                The variants are `max-lg:` rather than plain classes neutralised
+                at `lg` on purpose. At `lg` the parts are placed by explicit
+                column lines on one row, and a stray `order` there would make
+                the auto-placement cursor run past the text's own columns and
+                drop it onto a second row. Scoping the rule to below `lg` means
+                `lg` never sees an order at all, and if these variants ever
+                failed to compile the layout would simply stay as it is. */}
+            <div
+              className={`${PAD.top} ${PAD.bottom} max-lg:flex max-lg:flex-col ${GRID}`}
+            >
               <span
-                className={`type-accent-2xl text-text-on-accent ${AREA.number}`}
+                className={`type-accent-2xl text-text-on-accent max-lg:order-1 ${AREA.number}`}
               >
                 {String(index + 1).padStart(2, "0")}
               </span>
 
-              <div className={AREA.text}>
+              <div className={`max-lg:order-3 ${AREA.text}`}>
                 {/* The measured element. Its bottom edge is where every row
                     below it stops, so its own padding is the band's tail. */}
                 <h3
@@ -195,7 +209,7 @@ export default function ServiceRows({
                   the fill, so the sticker can be positioned against the
                   image's own edges rather than the column's. */}
               <div
-                className={`relative mt-8 w-full max-w-md lg:mt-0 lg:max-w-none ${AREA.media}`}
+                className={`relative mt-8 w-full max-w-md max-lg:order-2 lg:mt-0 lg:max-w-none ${AREA.media}`}
               >
                 {/* The row's illustration, or the empty tinted box if it has
                     none yet. Decorative either way: the title and description
