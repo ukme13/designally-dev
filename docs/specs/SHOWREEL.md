@@ -117,23 +117,31 @@ on the video crops the film to whatever shape those two produce.
 | Viewport | Box height | Reserve | Hero vs 100svh |
 |---|---|---|---|
 | 390x844 | 484 | 22.5rem | -17 |
-| 600x900 | 612 | 18rem | -33 |
-| 768x1024 | 736 | 18rem | -81 |
-| 1024x768 | 480 | 18rem | -66 |
-| 1440x900 | 612 | 18rem | -41 |
-| 1920x1080 | 792 | 18rem | -32 |
-| 2560x1440 | 1152 | 18rem | -32 |
+| 600x900 | 580 | 20rem | -65 |
+| 768x1024 | 704 | 20rem | -113 |
+| 1024x768 | 448 | 20rem | -98 |
+| 1440x900 | 580 | 20rem | -73 |
+| 1920x1080 | 760 | 20rem | -64 |
+| 2560x1440 | 1120 | 20rem | -64 |
 
 **The reserve has two values, because the hero's bottom padding does.** It is
 `pb-25 sm:pb-0`, so from `sm` up there is no bottom padding to budget for and
-the reserve drops from 22.5rem to 18rem — worth 72px of rectangle height at
-every size above 480px. Carrying the larger figure past that point cost the
-rectangle height for space that was no longer being used, and left the hero
-finishing short of the fold with the slack split above and below.
+the reserve drops from 22.5rem to 20rem. Carrying the full mobile figure past
+that point cost the rectangle height for space that was not being used.
 
-18rem rather than the 16.5rem the sum strictly needs: the caption term is an
-estimate, and guessing low costs the fold while guessing high costs only a
-slightly shorter rectangle.
+**20rem rather than the ~16.5rem the sum strictly needs, and the surplus is the
+design rather than a safety margin.** The hero is `flex min-h-svh items-center`,
+so every pixel the reserve does not spend becomes free space that `items-center`
+divides evenly above and below the block. That free space IS the gap under the
+breadcrumb, and the reserve is the only honest way to set it — bottom padding
+cannot do the job, because it is spent from the reserve and then centred
+against, so it costs the rectangle twice and lands on one side only.
+
+Raised from 18rem on 16 September 2026. At 18rem the free space was ~24px, so
+the block sat about 12px above the fold against the 80px of `pt-20` above it and
+read bottom-heavy. 20rem costs 32px of rectangle height and returns roughly 16px
+at each end. The caption term remains an estimate, and guessing low costs the
+fold while guessing high costs only a slightly shorter rectangle.
 
 Full grid width at every size, and the hero still clears the fold everywhere.
 The shape swings from portrait on a phone to a wide band on a desktop, and the

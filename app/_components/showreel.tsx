@@ -576,37 +576,55 @@ export default function Showreel() {
           hero bottom padding     100         0   (pb-25 sm:pb-0)
                                   ---       ---
                                   ~360      ~264
-                                  22.5rem   18rem from sm
+                                  22.5rem   20rem from sm
 
         Two values because the hero's bottom padding is only there below `sm`.
         Carrying the 100px past that point cost the rectangle 100px of height
         for space that was no longer being used, and left the hero finishing
         short of the fold with the slack split above and below it.
 
-        18rem rather than the 16.5rem the sum strictly needs: the caption term
-        is an estimate, and the cost of guessing low is the hero overshooting
-        100svh, where the cost of guessing high is only a slightly shorter
-        rectangle.
+        **THIS IS THE KNOB FOR THE SPACE AROUND THE BLOCK, and padding is not.**
+        The hero is `flex min-h-svh items-center`, so whatever the reserve does
+        not spend is free space, and `items-center` divides it evenly above and
+        below:
 
-        One figure at every size rather than a pair, because the two ends
-        cancel: mobile stacks the statement above the pills but has a smaller
-        typeface, desktop sets them side by side but much larger.
+          free = reserve − pt-20 − pb − mt-6 − caption
+               = 320 − 80 − 0 − 24 − ~160 = ~56   →  ~28px at each end
 
-        The caption term assumes the statement wraps to TWO lines, which it
-        does at every width checked — `type-display-sm` runs 40px to 76px and
-        the text is 26 characters against a `max-w-2xl` measure. Sized for the
-        wrap rather than the ideal, because a reserve that is too small does
-        not clip anything: it pushes the hero past 100svh and the section below
-        stops beginning at the fold.
+        Raising this number adds room above AND below in equal measure and
+        shortens the rectangle; lowering it does the reverse. Bottom padding
+        cannot do the same job: it is spent from the reserve and then centred
+        against, so it costs the video twice and lands asymmetrically.
 
-        Worst case across mobile, tablet, laptop and desktop is 4px of room to
-        spare. Keep it in step with all four terms — it is the only thing
-        stopping the hero outgrowing 100svh. Lower it for a taller rectangle if
-        the statement turns out to fit on one line.
+        **20rem from `sm` as of 16 September 2026, up from 18rem.** At 18rem the
+        free space was ~24px, so the block sat ~12px above the fold against the
+        80px of `pt-20` above it and read bottom-heavy — reported as the space
+        under the breadcrumb looking wrong. 20rem costs 32px of rectangle height
+        (612 → 580 at 1440x900) and returns ~16px at each end.
+
+        Still comfortably above the ~16.5rem the sum strictly needs, which
+        matters because the caption term is an estimate: guessing low pushes the
+        hero past 100svh, guessing high only shortens the rectangle a little.
+
+        The caption term is one figure per column rather than per breakpoint,
+        because the two ends cancel: mobile stacks the statement above the pills
+        but has a smaller typeface, desktop sets them side by side but much
+        larger.
+
+        It assumes the statement wraps to TWO lines, which it does at every
+        width checked — `type-display-sm` runs 40px to 76px and the text is 26
+        characters against a `max-w-2xl` measure. Sized for the wrap rather than
+        the ideal, because a reserve that is too small does not clip anything:
+        it pushes the hero past 100svh and the section below stops beginning at
+        the fold.
+
+        Below `sm` the mobile value still carries `pb-25`'s 100px and its worst
+        case is 4px of room to spare, so do not trim it. Keep every term in step
+        — this is the only thing stopping the hero outgrowing 100svh.
       */}
       <div
         ref={sectionRef}
-        className="w-full [--showreel-reserve:22.5rem] sm:[--showreel-reserve:18rem]"
+        className="w-full [--showreel-reserve:22.5rem] sm:[--showreel-reserve:20rem]"
       >
         {/*
           Position wrapper. Reserves the space from the first paint so nothing
