@@ -264,11 +264,30 @@ export default function Home() {
             against the fold. It is only affordable because it is accounted
             for: `--showreel-reserve` in showreel.tsx includes it, so the
             rectangle shrinks by the same amount rather than the hero
-            outgrowing 100svh.
+            outgrowing 100lvh.
 
-            `min-h-svh` rather than a fixed height: on a short viewport the
-            video and its caption are taller than the space available, and the
-            section grows instead of overflowing into the one below.
+            **`min-h-lvh`, NOT `min-h-svh` — changed 16 September 2026.** The
+            stage above is `h-lvh` for the reason set out there: on iOS 26 the
+            floating toolbar overlays the page, so the area the visitor sees is
+            the LARGE viewport. This section was still `svh`, roughly 90px
+            shorter on a phone, and that strip at the foot of the screen showed
+            the NEXT section on first paint. It is the same fault the gradient
+            had, one layer down — a cream band there, the following section
+            here. Reported on device with a screenshot.
+
+            The cost is the one the stage already accepts: with the toolbar
+            expanded the block is taller than the visible area, so the foot of
+            the breadcrumb can sit just under the fold. A hero that is
+            occasionally a little too tall beats one that is reliably too short.
+
+            NOT `dvh`. It tracks the visible viewport, so the rectangle would
+            resize every time Safari animates its toolbar — re-laying the pixel
+            grid mid-scroll, which is the machinery `use-showreel-grid.ts`
+            exists to keep still. `lvh` is a fixed number and never fires it.
+
+            It stays a `min-h-` rather than a fixed height: on a short viewport
+            the video and its caption are taller than the space available, and
+            the section grows instead of overflowing into the one below.
 
             No background of its own any more — the stage's sticky layer is
             what paints behind it. `relative` is what lifts it above that
@@ -282,7 +301,7 @@ export default function Home() {
             <h1> — or one of the existing headings should be promoted. */}
           <section
             id="hero"
-            className="relative flex min-h-svh w-full items-center justify-center pt-20 pb-25 sm:pb-0"
+            className="relative flex min-h-lvh w-full items-center justify-center pt-20 pb-25 sm:pb-0"
           >
             {/* Selected-work showreel. See docs/specs/SHOWREEL.md.
 

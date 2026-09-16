@@ -584,7 +584,7 @@ export default function Showreel() {
         short of the fold with the slack split above and below it.
 
         **THIS IS THE KNOB FOR THE SPACE AROUND THE BLOCK, and padding is not.**
-        The hero is `flex min-h-svh items-center`, so whatever the reserve does
+        The hero is `flex min-h-lvh items-center`, so whatever the reserve does
         not spend is free space, and `items-center` divides it evenly above and
         below:
 
@@ -604,7 +604,7 @@ export default function Showreel() {
 
         Still comfortably above the ~16.5rem the sum strictly needs, which
         matters because the caption term is an estimate: guessing low pushes the
-        hero past 100svh, guessing high only shortens the rectangle a little.
+        hero past 100lvh, guessing high only shortens the rectangle a little.
 
         The caption term is one figure per column rather than per breakpoint,
         because the two ends cancel: mobile stacks the statement above the pills
@@ -615,12 +615,12 @@ export default function Showreel() {
         width checked — `type-display-sm` runs 40px to 76px and the text is 26
         characters against a `max-w-2xl` measure. Sized for the wrap rather than
         the ideal, because a reserve that is too small does not clip anything:
-        it pushes the hero past 100svh and the section below stops beginning at
+        it pushes the hero past 100lvh and the section below stops beginning at
         the fold.
 
         Below `sm` the mobile value still carries `pb-25`'s 100px and its worst
         case is 4px of room to spare, so do not trim it. Keep every term in step
-        — this is the only thing stopping the hero outgrowing 100svh.
+        — this is the only thing stopping the hero outgrowing 100lvh.
       */}
       <div
         ref={sectionRef}
@@ -643,7 +643,7 @@ export default function Showreel() {
           `useShowreelGrid` observes — see `use-showreel-grid.ts` and
           `pixelGrid`.
         */}
-        <div ref={boxRef} className="relative h-[calc(100svh-var(--showreel-reserve))] w-full">
+        <div ref={boxRef} className="relative h-[calc(100lvh-var(--showreel-reserve))] w-full">
           {/*
             Shape wrapper. Owns the clip and holds the media. `rounded-lg` and
             `overflow-hidden` ARE the finished state: the entrance's last
