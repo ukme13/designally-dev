@@ -3,33 +3,53 @@
 import type { RefObject } from "react";
 import { useEffect } from "react";
 
+import { pixelGrid } from "@/app/_lib/showreel";
+
 /**
- * Drives the pixel wipe between two sections, scrubbed to scroll position.
+ * Draws the pixel wipe between two sections, scrubbed to scroll position.
  *
- * Extracted from pixel-circle-section-transition.tsx, which keeps the grid and
- * its markup — the split every animated component here has with its hook. The
- * component says what the wipe IS; this says how it moves.
+ * The component says what the wipe IS — its layer, its colour, where it sits;
+ * this says how it moves and paints it.
  *
  * ── The knobs ────────────────────────────────────────────────────────────
- *   per-cell pace   CELL_DURATION
+ *   per-cell pace      CELL_DURATION
  *   how much it fills  CELL_FILL
- *   the wave's pace ROWS_IN_FLIGHT
- *   its direction   WAVE
- *   when it runs    TRANSITION_START and TRANSITION_END
+ *   the wave's pace    ROWS_IN_FLIGHT
+ *   when it runs       START_LEAD_VH and SECTION_FILL_VH
+ *   how many circles   DEFAULT_DENSITY and COMPACT_DENSITY
  * ─────────────────────────────────────────────────────────────────────────
  *
- * **`scrub: true` and nothing else.** The timeline has no life of its own — its
- * playhead is the scroll position, so scrolling up runs it backwards and a
- * still page leaves it still. Nothing autoplays and nothing repeats.
+ * **Drawn on ONE canvas, as of 17 September 2026.** It used to be hundreds of
+ * DOM elements — up to 683 circles per wipe on a desktop — each given a new
+ * `transform` by GSAP on every scroll frame. The animation maths was trivial;
+ * the cost was the browser restyling and repainting that many rounded shapes
+ * sixty times a second, and it read as stutter. A canvas turns that into one
+ * paint per frame of a single path.
  *
- * **The stagger is a GSAP grid stagger**, given the real column and row counts,
- * so nothing here is random. `axis: "y"`, `from: "end"` orders cells by ROW from
- * the bottom, so a whole row moves together and the wave travels straight up.
+ * It also removes two faults the DOM version had, rather than working around
+ * them:
  *
- * **Reduced motion builds nothing.** The cells are rendered `opacity-0`, so an
- * absent timeline leaves them invisible and the section beneath untouched. That
- * is also what a failed import and a no-JavaScript visit produce: this element
- * covers content, so its safe state has to be the invisible one.
+ *   - **The load-time freeze.** Its cleanup cleared every cell's inline style
+ *     through GSAP, which re-read each cell's computed transform afterwards —
+ *     one forced layout per cell, about six seconds on a phone. There are no
+ *     per-cell styles here to clear.
+ *   - **The rebuild on resize.** The grid was React state, so settling it
+ *     re-rendered hundreds of elements and tore the timeline down to build it
+ *     again. Here a resize just re-measures and redraws.
+ *
+ * **The motion is unchanged, and reproduced exactly rather than approximated.**
+ * It was a GSAP timeline of two grid-staggered tweens. GSAP now only reports
+ * scroll progress; the per-row scale is computed here with GSAP's own stagger
+ * formula — see `rowDelay` — so the wave keeps its pace.
+ *
+ * **`scrub: true` in effect, still.** Progress IS the scroll position: scrolling
+ * up runs it backwards and a still page leaves it still. Nothing autoplays and
+ * nothing repeats.
+ *
+ * **Reduced motion draws nothing, and so does every failure.** The canvas starts
+ * transparent, so an absent import, no JavaScript, or reduced motion all leave
+ * the section beneath untouched. This element covers content, so its safe state
+ * has to be the invisible one.
  */
 
 /**
@@ -38,34 +58,24 @@ import { useEffect } from "react";
  * Staggered by ROW from the bottom up, and the pace of that stagger is what
  * makes the wipe read as a wave rather than a fog — see ROWS_IN_FLIGHT.
  *
- * **Two grids, the second on the first's corners.** It lands a circle on every
- * corner intersection, which both doubles the density and moves the deepest
- * uncovered point from a cell CORNER to a cell EDGE — see CELL_FILL. It is one
- * cell larger in each direction, so it has circles on the corners that sit on
- * the layer's own edges too; the component explains why.
+ * **Two lattices, the second on the first's corners.** It lands a circle on
+ * every corner intersection, which both doubles the density and moves the
+ * deepest uncovered point from a cell CORNER to a cell EDGE — see CELL_FILL. It
+ * is one cell larger in each direction, so it has circles on the corners along
+ * the layer's own edges too.
  *
- * Its wave runs half a row-step ahead of the primary grid, because its rows sit
- * half a cell lower and a bottom-up wave should reach them first. Its stagger is
- * told its own shape, which is one more row and column than the primary's.
+ * Its wave runs half a row-step ahead of the primary lattice, because its rows
+ * sit half a cell lower and a bottom-up wave should reach them first.
  *
  * **NOTHING TRANSLATES, and that is deliberate.** An earlier version flew the
  * cells up into place, and it went wrong twice over: the layer already scrolls
- * with the page at 1:1, so any `yPercent` of its own made the cells slide
- * against the section beneath — a parallax where the two should be locked — and
- * a cell pushed past the layer's edge got clipped, so the bottom row was never
- * flush.
- *
- * The upward movement is carried by the STAGGER instead. Rows arrive from the
- * bottom up, which reads as a rising wave without a single pixel leaving its
- * cell. Cheaper, and it cannot drift out of register with the section because
- * there is nothing to drift.
- *
- * The act is not placed at an absolute fraction of the scroll any more. The
- * timeline's total is however long the stagger makes it, and `scrub` maps that
- * onto the range — so the constants describe the animation's own proportions and
- * the scroll decides how much of the screen they take.
+ * with the page at 1:1, so any movement of its own made the cells slide against
+ * the section beneath, and a cell pushed past the layer's edge got clipped, so
+ * the bottom row was never flush. The upward movement is carried by the
+ * STAGGER — rows arrive from the bottom up — without a single circle leaving
+ * its cell.
  */
-/** How long ONE cell takes to grow, and then to square off, in timeline units. */
+/** How long ONE cell takes to grow, in timeline units. */
 const CELL_DURATION = 0.5;
 
 /**
@@ -83,7 +93,7 @@ const CELL_DURATION = 0.5;
  */
 const ROWS_IN_FLIGHT = 4;
 
-/** The step between one row starting and the next. Derived, never set directly. */
+/** The stagger's `each`. Derived, never set directly. */
 const ROW_STEP = CELL_DURATION / ROWS_IN_FLIGHT;
 
 /**
@@ -110,19 +120,28 @@ const ROW_STEP = CELL_DURATION / ROWS_IN_FLIGHT;
 const CELL_FILL = 1.2;
 
 /**
- * Every act staggers by ROW, from the bottom up.
+ * When a row of circles starts growing, in timeline units.
  *
- * `axis: "y"` is the load-bearing part: it makes the stagger depend on a cell's
- * row and nothing else, so a whole row moves together and the wave travels
- * straight up. `from: "end"` starts it at the bottom row — which is the
- * section's own top edge, the boundary this is a transition across.
+ * **This is GSAP's grid stagger reproduced exactly**, not an approximation of
+ * it. The DOM version used `stagger: { each: ROW_STEP, grid: [rows, columns],
+ * axis: "y", from: "end" }`, and the installed `distribute()` in gsap-core.js
+ * resolves that to
  *
- * A radial stagger from bottom-centre was tried and looked wrong: the outer
- * columns lagged so far behind the middle that the pattern read as a spreading
- * diamond rather than a rising wave. Radial is right for the showreel's mask,
- * which fills a rectangle from its middle; this one has a direction.
+ *     delay(row) = each × rowCount × (rowCount − 1 − row) / (rowCount − 1)
+ *
+ * — the bottom row at 0 and the top at `each × rowCount`. Note that the spread
+ * is `each × rowCount`, NOT `each × (rowCount − 1)`: the gap between rows is
+ * slightly more than `each`. A hand-written `row × each` would have quietly
+ * changed the wave's pace, so this was read from the source rather than
+ * assumed.
+ *
+ * `axis: "y"` means every circle in a row shares one delay, which is why the
+ * scale below is worked out per row rather than per circle.
  */
-const WAVE = { axis: "y", from: "end" } as const;
+const rowDelay = (row: number, rowCount: number) =>
+  rowCount > 1
+    ? (ROW_STEP * rowCount * (rowCount - 1 - row)) / (rowCount - 1)
+    : 0;
 
 /**
  * When the wipe runs, in ScrollTrigger's "<edge> <viewport position>" syntax.
@@ -168,56 +187,193 @@ const TRANSITION_START = `bottom ${100 + START_LEAD_VH}%`;
 const TRANSITION_END = `bottom ${100 - SECTION_FILL_VH}%`;
 
 /**
- * Every inline property GSAP may leave on a cell, removed by hand on cleanup.
+ * Roughly how many cells the wipe aims for, whatever shape it has to fill.
  *
- * `opacity` is set once and `transform` carries the scale. `translate`,
- * `rotate` and `scale` are here as well because GSAP neutralises the standalone
- * CSS properties inline when it detects them, so a cell can carry those too.
- * Removing a property that is not set does nothing and reads nothing, so an
- * unused entry costs nothing.
+ * Double the showreel mask's 144. The mask covers a video rectangle and its
+ * cells want to read as visible pixels; this covers a band of the screen, where
+ * the same count gives circles big enough to look like a polka dot. Denser
+ * reads as a wipe rather than a pattern.
  *
- * The cells carry no inline style from React — only a `className` — so
- * everything inline on them is GSAP's and safe to remove. If a cell ever gains
- * an inline style of its own, this list is still correct; a blanket
- * `cssText = ""` would not be.
+ * Passed to `pixelGrid` rather than changed at its source, because that
+ * constant is the showreel's and this is not the showreel.
  */
-const GSAP_WRITES = ["opacity", "transform", "translate", "rotate", "scale"] as const;
+const DEFAULT_DENSITY = 288;
+
+/**
+ * The count used when the layer is narrow, which in practice means a phone.
+ *
+ * Fewer, bigger circles, for the reason the showreel has
+ * `PIXEL_TARGET_CELLS_COMPACT`: a count tuned for a monitor puts the same
+ * number of cells across a 390px screen, so each lands at roughly 24px and the
+ * wave reads as grain. At 120 a phone resolves to about 11x12, nearer 35px.
+ *
+ * Chosen from the layer's measured width rather than a breakpoint, because
+ * this layer's shape comes from the viewport, not from a container query.
+ */
+const COMPACT_DENSITY = 120;
+
+/** Layer widths below this use the compact count, in CSS pixels. */
+const COMPACT_MAX_PX = 480;
 
 export function usePixelWipe({
   layerRef,
-  gridRef,
-  offsetGridRef,
-  columns,
-  rows,
+  canvasRef,
+  colourRef,
+  surface,
+  density,
 }: {
-  /** The stage. Also what ScrollTrigger measures. */
+  /** The stage. What is measured, and what ScrollTrigger watches. */
   layerRef: RefObject<HTMLDivElement | null>;
-  /** The grid whose children are the pixels. */
-  gridRef: RefObject<HTMLDivElement | null>;
-  /** The same grid again, shifted half a cell, sitting on the first's corners. */
-  offsetGridRef: RefObject<HTMLDivElement | null>;
-  /** The grids' real shape, so the staggers can be told about it. */
-  columns: number;
-  rows: number;
+  /** Where the circles are drawn. Fills the stage exactly. */
+  canvasRef: RefObject<HTMLCanvasElement | null>;
+  /**
+   * A hidden element carrying the `surface` class, read once for its colour.
+   *
+   * A canvas needs a real colour and `surface` is a Tailwind utility, so the
+   * browser resolves the token for us. One read per setup, never per frame.
+   */
+  colourRef: RefObject<HTMLElement | null>;
+  /** The `surface` class itself — here so a change re-reads the colour. */
+  surface: string;
+  /** Roughly how many cells; unset, it is chosen from the measured width. */
+  density?: number;
 }) {
   useEffect(() => {
     const layer = layerRef.current;
-    const grid = gridRef.current;
-    const offsetGrid = offsetGridRef.current;
-    if (!layer || !grid || !offsetGrid) return;
+    const canvas = canvasRef.current;
+    const probe = colourRef.current;
+    if (!layer || !canvas || !probe) return;
 
-    const primaryCells = Array.from(grid.children) as HTMLElement[];
-    const offsetCells = Array.from(offsetGrid.children) as HTMLElement[];
-    const cells = [...primaryCells, ...offsetCells];
-    if (cells.length === 0) return;
-
-    /* Read once, here. Nothing below animates under reduced motion, so there is
-       nothing to keep watching for — and the cells stay invisible, which is the
-       state that leaves the section beneath it alone. */
+    /* Read once. Nothing animates under reduced motion, so there is nothing to
+       keep watching for — and an untouched canvas is transparent. */
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
 
+    const context = canvas.getContext("2d");
+    if (!context) return;
+
+    /* Resolved from the token by the browser. The wipes use plain hex tokens,
+       so this comes back as `rgb(...)`, which every canvas accepts. */
+    const colour = getComputedStyle(probe).backgroundColor;
+
+    let width = 0;
+    let height = 0;
+    let columns = 0;
+    let rows = 0;
+    let progress = 0;
+    /* What the canvas currently shows. A scroll event that does not move the
+       progress repaints nothing. `NaN` never equals anything, so the next draw
+       always happens after a measure. */
+    let painted = Number.NaN;
+
+    /*
+      The layer's size, the grid that fits it, and a backing store to match.
+
+      Assigning `canvas.width` clears the canvas and resets its transform, so
+      both are re-established here and `painted` is invalidated.
+
+      Returns whether there was anything to measure — a layer with no size
+      (still laying out, or hidden) is simply not drawn.
+    */
+    const measure = () => {
+      const w = layer.clientWidth;
+      const h = layer.clientHeight;
+      if (!w || !h) return false;
+
+      /* Capped at 2, as the showreel's canvas is: a 3x backing store costs
+         more than it shows at this scale. */
+      const ratio = Math.min(window.devicePixelRatio || 1, 2);
+      canvas.width = Math.round(w * ratio);
+      canvas.height = Math.round(h * ratio);
+      context.setTransform(ratio, 0, 0, ratio, 0, 0);
+
+      width = w;
+      height = h;
+      /* An explicit prop wins at every size; otherwise a phone gets fewer and
+         bigger circles than a monitor. */
+      const target =
+        density ?? (w < COMPACT_MAX_PX ? COMPACT_DENSITY : DEFAULT_DENSITY);
+      ({ columns, rows } = pixelGrid(w / h, target));
+      painted = Number.NaN;
+      return true;
+    };
+
+    /*
+      One frame of the wipe, at progress `p` through the scroll range.
+
+      Every circle goes into ONE path and is filled once. They are all the same
+      colour, and overlapping ellipses traced in the same direction fill as
+      their union under the default non-zero rule, so batching changes nothing
+      that can be seen and saves hundreds of fills.
+    */
+    const draw = (p: number) => {
+      if (p === painted || !columns || !rows) return;
+      painted = p;
+
+      context.clearRect(0, 0, width, height);
+      if (p <= 0) return;
+
+      /* The timeline's length, as GSAP computed it: the offset lattice is the
+         longer tween, starting at 0 with its top row delayed by
+         `ROW_STEP × (rows + 1)`. */
+      const total = ROW_STEP * (rows + 1) + CELL_DURATION;
+      const time = p * total;
+
+      const cellWidth = width / columns;
+      const cellHeight = height / rows;
+      /* Inscribed in the cell, as `rounded-full` on a `size-full` box was. The
+         grid is chosen to keep cells square, so these are circles; if a shape
+         ever defeats the search they stay ellipses, exactly as before. */
+      const radiusX = cellWidth / 2;
+      const radiusY = cellHeight / 2;
+
+      context.fillStyle = colour;
+      context.beginPath();
+
+      /*
+        A lattice of `across` × `down` circles whose first centre sits at
+        (`left`, `top`), starting `start` into the timeline.
+      */
+      const lattice = (
+        across: number,
+        down: number,
+        left: number,
+        top: number,
+        start: number,
+      ) => {
+        for (let row = 0; row < down; row++) {
+          const local = time - start - rowDelay(row, down);
+          if (local <= 0) continue;
+          /* `ease: "none"` — linear from nothing to CELL_FILL. */
+          const scale = CELL_FILL * Math.min(1, local / CELL_DURATION);
+          const rx = radiusX * scale;
+          const ry = radiusY * scale;
+          const y = top + row * cellHeight;
+          for (let column = 0; column < across; column++) {
+            const x = left + column * cellWidth;
+            /* Without the moveTo, each ellipse would be joined to the last by a
+               straight line, and the fill would include the joins. */
+            context.moveTo(x + rx, y);
+            context.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2);
+          }
+        }
+      };
+
+      /*
+        The offset lattice first — one larger each way, its centres on the
+        primary's corners, so its first centre is the layer's own top-left
+        corner. It starts at 0.
+      */
+      lattice(columns + 1, rows + 1, 0, 0, 0);
+      /* The primary lattice: centres half a cell in, half a row-step later. */
+      lattice(columns, rows, cellWidth / 2, cellHeight / 2, ROW_STEP / 2);
+
+      /* The canvas's own bounds are the clip, so circles overhanging the edges
+         are cut exactly as the old `overflow-hidden` cut them. */
+      context.fill();
+    };
+
     let cancelled = false;
-    let revert: (() => void) | undefined;
+    let teardown: (() => void) | undefined;
 
     const run = async () => {
       const [{ gsap }, { ScrollTrigger }] = await Promise.all([
@@ -227,132 +383,59 @@ export function usePixelWipe({
 
       /* The imports resolve on a later tick, by which time this effect may
          already have been cleaned up — Strict Mode guarantees it in
-         development. A stale resolution must build no timeline, or the second
-         mount runs two of them over the same cells. */
+         development. A stale resolution must build nothing. */
       if (cancelled) return;
 
       gsap.registerPlugin(ScrollTrigger);
+      measure();
 
       /*
-        Scaled to nothing. Roundness is a class now, not a property GSAP owns —
-        nothing animates it any more, so `rounded-full` on the cell is the
-        simpler and more honest place for it.
-
-        `opacity: 1` is SET, never animated. The cells are rendered `opacity-0`
-        so that an absent timeline leaves them invisible — but nothing here
-        fades: a cell is invisible because it has no size. Fading a cover in
-        reads as a veil; scaling it reads as material.
-
-        Written by GSAP rather than by a class so GSAP owns every property it
-        touches. A Tailwind `scale-0` would be especially wrong: Tailwind v4
-        writes the standalone `scale` property while GSAP writes `transform`,
-        and the two would multiply.
+        GSAP's only job now: report where the scroll is between START and END.
+        With no animation attached there is nothing to scrub, so `onUpdate`
+        hands the raw progress straight to `draw` — the same mapping
+        `scrub: true` gave the timeline.
       */
-      gsap.set(cells, { opacity: 1, scale: 0 });
-
-      const timeline = gsap.timeline({
-        scrollTrigger: {
-          trigger: layer,
-          start: TRANSITION_START,
-          end: TRANSITION_END,
-          /* The playhead IS the scroll position. */
-          scrub: true,
-          invalidateOnRefresh: true,
+      const trigger = ScrollTrigger.create({
+        trigger: layer,
+        start: TRANSITION_START,
+        end: TRANSITION_END,
+        onUpdate: (self) => {
+          progress = self.progress;
+          draw(progress);
+        },
+        onRefresh: (self) => {
+          progress = self.progress;
+          draw(progress);
         },
       });
-
-      /* Each lattice's own shape. The offset one is one larger in both
-         directions — see the component — and a stagger told the wrong shape
-         computes the wrong row for every cell after the first line. */
-      const primaryShape = [rows, columns] as [number, number];
-      const offsetShape = [rows + 1, columns + 1] as [number, number];
+      progress = trigger.progress;
+      draw(progress);
 
       /*
-        The whole animation, once per grid: dots open bottom row first and
-        overgrow their cells until their neighbours meet. The leading edge of
-        the wave stays visibly circular while everything behind it is solid.
-
-        Two tweens rather than one, because a grid stagger needs a rectangular
-        shape to measure and two interleaved lattices are not one rectangle.
-        The offset grid goes FIRST — half a row-step earlier — since its rows
-        sit half a cell lower and a wave travelling up should reach them before
-        the primary grid's.
+        A resize re-measures and redraws — nothing is rebuilt. ScrollTrigger
+        recalculates its own start and end on resize, and reports the new
+        progress through `onRefresh`.
       */
-      const open = (
-        targets: HTMLElement[],
-        shape: [number, number],
-        position: number,
-      ) => {
-        timeline.to(
-          targets,
-          {
-            scale: CELL_FILL,
-            duration: CELL_DURATION,
-            ease: "none",
-            stagger: { each: ROW_STEP, grid: shape, ...WAVE },
-          },
-          position,
-        );
-      };
+      const observer = new ResizeObserver(() => {
+        if (measure()) draw(progress);
+      });
+      observer.observe(layer);
 
-      open(offsetCells, offsetShape, 0);
-      open(primaryCells, primaryShape, ROW_STEP / 2);
-
-      revert = () => {
-        timeline.scrollTrigger?.kill();
-        timeline.kill();
-        /*
-          The cells go back to invisible — the stylesheet's own `opacity-0`
-          governs them again — WITHOUT asking GSAP to do it.
-
-          **This was `gsap.set(cells, { clearProps: "all" })`, and on a phone it
-          froze the page for about six seconds on every load.** Found with a
-          Safari timeline recording on 17 September 2026: 97% of CPU samples in
-          GSAP's `getComputedStyle` wrapper, reached from this line. For EACH
-          cell, clearProps writes the element's inline style away and then
-          immediately re-reads its computed transform — a write followed by a
-          read, which forces a full-page style recalculation and layout. One per
-          cell, back to back: ~1,256 forced layouts across the page's two wipes
-          at ~4.3ms each on the device. No frame could be painted until it
-          finished, so everything that waits on a rendering step — the
-          showreel's IntersectionObservers, the hero's cue — waited too, and the
-          showreel's entrance only began after six seconds of a frozen screen.
-
-          It ran on page load, not just on unmount, because this effect
-          depends on `columns` and `rows`: the grid settles after the first
-          timeline is built, so that timeline is torn down straight away.
-
-          Plain writes cannot force a layout on their own. The browser batches
-          every one of these into a single recalculation at the next frame,
-          however many cells there are. Confirmed on the device: the stall is
-          gone and the entrance plays immediately.
-
-          The `_gsap` cache has to go too. GSAP keeps each element's parsed
-          transform on it, and after these writes that record no longer matches
-          the element, so a rebuild would start from stale values. Dropped, the
-          next `gsap.set` parses each cell fresh, exactly as the first build
-          does — which is cheap. It is the re-read after a CLEAR that is
-          expensive, not the first read.
-
-          `Reflect.deleteProperty` rather than `delete`: the cache is GSAP's own
-          expando, not part of the element's type.
-        */
-        for (const cell of cells) {
-          for (const property of GSAP_WRITES) {
-            cell.style.removeProperty(property);
-          }
-          Reflect.deleteProperty(cell, "_gsap");
-        }
+      teardown = () => {
+        observer.disconnect();
+        trigger.kill();
+        /* A pure write: nothing here is read back. */
+        context.clearRect(0, 0, width, height);
       };
     };
 
-    /* A failed import must leave the section visible, which the cells' own
-       `opacity-0` already does — there is simply nothing to undo. */
+    /* A failed import leaves the canvas transparent, which is already the safe
+       state — there is simply nothing to undo. */
     void run().catch(() => undefined);
 
     return () => {
       cancelled = true;
-      revert?.();
+      teardown?.();
     };
-  }, [layerRef, gridRef, offsetGridRef, columns, rows]);
+  }, [layerRef, canvasRef, colourRef, surface, density]);
 }

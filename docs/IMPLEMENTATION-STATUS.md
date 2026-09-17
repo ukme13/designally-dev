@@ -2,6 +2,11 @@
 
 Updated: 9 September 2026
 
+> **Out of date.** Substantial work has landed since this snapshot and it has
+> not been refreshed — see `docs/updates/` from 10 September onward, in
+> particular 15, 16 and 17 September. Treat the lists below as a starting point,
+> not as current. A full pass is owed.
+
 A snapshot of what exists in the codebase, what is placeholder, and what has
 not been started. Read alongside `docs/updates/` for the record of how each
 piece was built and verified.

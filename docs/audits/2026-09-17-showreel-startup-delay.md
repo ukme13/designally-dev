@@ -308,3 +308,9 @@ in the probe should land within a few hundred milliseconds of mount.
   Codex's startup profiling are removed. Every instrumented file was restored
   from `HEAD` after its diff was read and confirmed to hold nothing else.
 - Recorded in `docs/updates/2026-09-17.md`.
+
+**Superseded later the same day.** The pixel wipe was rewritten to draw on a
+canvas, so the per-cell cleanup this fix corrected no longer exists in any form
+— there are no per-cell styles left to clear. The finding still stands as the
+record of why the page froze. See `docs/updates/2026-09-17.md`, *The pixel
+wipe, redrawn on a canvas*.
