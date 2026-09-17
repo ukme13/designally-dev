@@ -29,3 +29,17 @@ export const STAGGER_ENTER =
   "group-data-open:duration-500 group-data-open:ease-sweep " +
   "group-data-open:delay-(--stagger) " +
   "motion-reduce:transition-none";
+
+/**
+ * The gap between one card setting off and the next, in milliseconds.
+ *
+ * Shared so the two card arrivals on the homepage cannot drift apart: the
+ * situation cards turn it into seconds for GSAP, and the insight cards spend it
+ * as a CSS `transition-delay`. It was written out in both places, in different
+ * units, under a comment asking whoever changed one to remember the other —
+ * which is the kind of instruction that is followed exactly once.
+ *
+ * Spent only where cards sit side by side. Stacked, each arrives on its own
+ * trigger and a delay is lag rather than rhythm.
+ */
+export const CARD_STAGGER_MS = 180;

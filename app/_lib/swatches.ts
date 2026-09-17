@@ -34,33 +34,49 @@
  *   edge     the card's border: a hairline on the two light surfaces, which
  *            would otherwise melt into the cream page, and transparent on the
  *            two strong ones, so every card is the same size
- *   fill     the shape when there is no photo. The ink colour, because a shape
- *            in the surface colour would vanish into the card behind it.
+ *   fill     the shape when there is no photo. Built from the INK colour,
+ *            because a shape in the surface colour would vanish into the card
+ *            behind it — as a soft diagonal wash from full strength to 55%
+ *            rather than a flat blob, so the box reads as artwork standing in
+ *            for a photograph rather than as a missing one. It invents no
+ *            content and needs no asset.
+ *   onFill   the arrow's colour once its circle has filled with `ink` on
+ *            hover: the card's own SURFACE, so the mark reads as a hole
+ *            punched through the fill rather than a second colour.
+ *
+ * `onFill` carries its `group-hover:` prefix inside the string, which looks odd
+ * and is deliberate. Tailwind scans this file as text, so a class assembled at
+ * the call site from `swatch.onFill` would never be seen and would compile to
+ * nothing — silently, with no error. Written out, it is found.
  */
 export const SWATCHES = {
   orange: {
     surface: "bg-primary-300",
+    onFill: "group-hover:text-primary-300",
     ink: "text-text-on-accent",
     edge: "border-transparent",
-    fill: "bg-text-on-accent",
+    fill: "bg-linear-to-br from-text-on-accent to-text-on-accent/55",
   },
   cream: {
     surface: "bg-surface-base",
+    onFill: "group-hover:text-surface-base",
     ink: "text-text-primary",
     edge: "border-border-default",
-    fill: "bg-text-primary",
+    fill: "bg-linear-to-br from-text-primary to-text-primary/55",
   },
   dark: {
     surface: "bg-surface-inverse",
+    onFill: "group-hover:text-surface-inverse",
     ink: "text-text-on-accent",
     edge: "border-transparent",
-    fill: "bg-text-on-accent",
+    fill: "bg-linear-to-br from-text-on-accent to-text-on-accent/55",
   },
   "surface-raised": {
     surface: "bg-surface-raised",
+    onFill: "group-hover:text-surface-raised",
     ink: "text-text-primary",
     edge: "border-border-default",
-    fill: "bg-text-primary",
+    fill: "bg-linear-to-br from-text-primary to-text-primary/55",
   },
 } as const;
 

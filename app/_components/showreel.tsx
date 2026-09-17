@@ -576,7 +576,7 @@ export default function Showreel() {
           hero bottom padding     100         0   (pb-25 sm:pb-0)
                                   ---       ---
                                   ~360      ~264
-                                  22.5rem   20rem from sm
+                                  22.5rem   18.5rem from sm
 
         Two values because the hero's bottom padding is only there below `sm`.
         Carrying the 100px past that point cost the rectangle 100px of height
@@ -589,18 +589,31 @@ export default function Showreel() {
         below:
 
           free = reserve − pt-20 − pb − mt-6 − caption
-               = 320 − 80 − 0 − 24 − ~160 = ~56   →  ~28px at each end
+               = 296 − 80 − 0 − 24 − ~160 = ~32   →  ~16px at each end
 
         Raising this number adds room above AND below in equal measure and
         shortens the rectangle; lowering it does the reverse. Bottom padding
         cannot do the same job: it is spent from the reserve and then centred
         against, so it costs the video twice and lands asymmetrically.
 
-        **20rem from `sm` as of 16 September 2026, up from 18rem.** At 18rem the
-        free space was ~24px, so the block sat ~12px above the fold against the
-        80px of `pt-20` above it and read bottom-heavy — reported as the space
-        under the breadcrumb looking wrong. 20rem costs 32px of rectangle height
-        (612 → 580 at 1440x900) and returns ~16px at each end.
+        **18.5rem from `sm` as of 17 September 2026**, having been 18rem and
+        then 20rem in the two days before it. The history is the argument, so
+        it is kept:
+
+          18rem    free ~24px, ~12px at each end. The block sat almost on the
+                   fold against the 80px of `pt-20` above it and read
+                   bottom-heavy — reported as the space under the breadcrumb
+                   looking wrong.
+          20rem    free ~56px, ~28px at each end. That fixed it, and cost 32px
+                   of rectangle height.
+          18.5rem  free ~32px, ~16px at each end. Asked for a taller rectangle;
+                   this returns 24px of it and keeps the block visibly clear of
+                   the fold rather than flush against it.
+
+        **The gap under the breadcrumb IS this surplus**, so the two cannot both
+        grow. Every pixel given to the rectangle comes off the space around it,
+        and the useful range is narrow: below about 17rem the hero stops fitting
+        in one viewport at all.
 
         Still comfortably above the ~16.5rem the sum strictly needs, which
         matters because the caption term is an estimate: guessing low pushes the
@@ -624,7 +637,7 @@ export default function Showreel() {
       */}
       <div
         ref={sectionRef}
-        className="w-full [--showreel-reserve:22.5rem] sm:[--showreel-reserve:20rem]"
+        className="w-full [--showreel-reserve:22.5rem] sm:[--showreel-reserve:18.5rem]"
       >
         {/*
           Position wrapper. Reserves the space from the first paint so nothing

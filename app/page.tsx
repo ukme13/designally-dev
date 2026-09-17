@@ -48,8 +48,8 @@ async function FeaturedInsightCards() {
      the cards stack on a phone, so a shared trigger would run all three while
      two of them were still far below the fold. `reveal-fill` keeps the card
      filling the wrapper, which is the grid item now. */
-  return featuredInsights.map((insight) => (
-    <RevealOnView key={insight.title} className="reveal-fill">
+  return featuredInsights.map((insight, index) => (
+    <RevealOnView key={insight.title} className="reveal-fill" index={index}>
       <InsightCard insight={insight} />
     </RevealOnView>
   ));

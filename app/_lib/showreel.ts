@@ -243,8 +243,8 @@ export type PixelGrid = { columns: number; rows: number };
  * Clamped at both ends. A pathological box — a sliver during a resize, a
  * measurement of zero — must not produce a grid of one enormous cell or of
  * thousands of invisible ones. A shape so extreme that nothing fits the cell
- * budget falls back to the old formula rather than to the 16:9 default, so it
- * degrades instead of jumping.
+ * budget keeps its cells SQUARE and lets the count drift instead, rather than
+ * jumping to the 16:9 default — see the note on that branch below.
  */
 export function pixelGrid(
   aspect: number,
@@ -289,10 +289,30 @@ export function pixelGrid(
 
   if (best) return best;
 
-  /* Nothing fitted the budget — an aspect extreme enough that the row count
-     clamps before the count can balance. The old formula at least tiles. */
+  /*
+    Nothing fitted the cell budget: the box is wide enough that every
+    arrangement inside the column clamp misses the target count.
+
+    **Rows come from the ASPECT here, never from the count, and that is the
+    whole point of this branch.** Deriving them from the count — `target /
+    columns` — is what this did before, and it holds the number of cells while
+    letting the cells themselves go oblong. On a 5120x1440 screen the wipe's
+    50svh band resolved to 32x9 cells of 160x80, a ratio of 2.0, and circles
+    drawn with `rounded-full` rendered as flat ovals. Reported on a wide screen,
+    17 September 2026, and reported once before at 30svh for the same reason.
+
+    Squareness is what this function is for, so the COUNT is what gives way.
+    That screen now resolves to 32x5: 160 cells rather than 288, and a ratio of
+    1.11. Fewer and larger cells, which is the right trade for a shape no
+    arrangement can tile both squarely and at count.
+
+    Measured either side of the change — 3440x1440 1.34 -> 1.05, 3840x1600
+    1.35 -> 1.05, 5120x1440 2.00 -> 1.11. The showreel's own boxes never reach
+    this branch at either of its targets, checked from a 337px phone to a 2560px
+    desktop, so only the wipe travels this path.
+  */
   const columns = clamp(Math.round(Math.sqrt(target * aspect)));
-  return { columns, rows: clamp(Math.round(target / columns)) };
+  return { columns, rows: clamp(Math.round(columns / aspect)) };
 }
 
 /**
