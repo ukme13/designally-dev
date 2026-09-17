@@ -3,6 +3,7 @@
 import type { RefObject } from "react";
 
 import { cssEase } from "@/app/_lib/css-ease";
+import { CARD_STAGGER_MS } from "@/app/_lib/motion";
 import type { ElementSlots } from "@/app/_lib/element-slots";
 import { present } from "@/app/_lib/element-slots";
 import { useBeforePaint } from "@/app/_lib/use-before-paint";
@@ -86,8 +87,14 @@ const CARD_ENTRY_TILT = -8;
 const CARD_ENTRY_SCALE = 0.82;
 /** How long one card takes to arrive, in seconds. */
 const CARD_DURATION = 1.1;
-/** The gap between card 01 setting off and card 02, in seconds. */
-const CARD_STAGGER = 0.18;
+/**
+ * The gap between card 01 setting off and card 02, in seconds.
+ *
+ * Derived from the shared figure in motion.ts, which the insight cards spend as
+ * a CSS delay. GSAP wants seconds; CSS wants milliseconds; neither should be
+ * the one that quietly drifts.
+ */
+const CARD_STAGGER = CARD_STAGGER_MS / 1000;
 /**
  * When a card's copy begins, relative to that card LANDING, in seconds.
  *

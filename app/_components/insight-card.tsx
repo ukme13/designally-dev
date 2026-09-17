@@ -1,8 +1,11 @@
 import Image from "next/image";
-import type { CSSProperties } from "react";
+import Link from "next/link";
 
 import { ArrowRightIcon } from "@/app/_components/icons";
+import FlipCard from "@/app/_components/flip-card";
 import { INSIGHT_TAG, type Insight } from "@/app/_lib/insights";
+import { maskStyle } from "@/app/_lib/mask";
+import { insightsHref } from "@/app/_lib/navigation";
 import { SWATCHES } from "@/app/_lib/swatches";
 
 /**
@@ -64,20 +67,6 @@ function published(iso: string | undefined) {
   return Number.isNaN(date.getTime()) ? null : DATE.format(date);
 }
 
-/** The shape's outline as a mask, fitted to the 4:3 box. */
-function maskStyle(src: string): CSSProperties {
-  return {
-    maskImage: `url("${src}")`,
-    WebkitMaskImage: `url("${src}")`,
-    maskSize: "100% 100%",
-    WebkitMaskSize: "100% 100%",
-    maskRepeat: "no-repeat",
-    WebkitMaskRepeat: "no-repeat",
-    maskPosition: "center",
-    WebkitMaskPosition: "center",
-  };
-}
-
 /**
  * Where the mask comes from. A path on this site is used as it is. A remote
  * SVG is fetched here on the server, checked to be an SVG, and inlined as a
@@ -116,53 +105,92 @@ export default async function InsightCard({
   const date = published(insight.publishedAt);
 
   return (
-    <article
-      className={`flex flex-col rounded-lg border p-5 ${swatch.surface} ${swatch.ink} ${swatch.edge}`}
-    >
-      {hasPicture ? (
-        <div
-          className={`relative aspect-4/3 overflow-hidden${mask ? "" : " rounded-sm"}`}
-          style={mask ? maskStyle(mask) : undefined}
-        >
-          {insight.image ? (
-            <Image
-              src={insight.image.src}
-              alt={insight.image.alt}
-              width={insight.image.width}
-              height={insight.image.height}
-              sizes={CARD_SIZES}
-              className="size-full object-cover"
-            />
-          ) : (
-            /* No photo: the shape as a solid graphic, in the ink colour. */
-            <div aria-hidden="true" className={`size-full ${swatch.fill}`} />
-          )}
-        </div>
-      ) : null}
-
-      <div className="flex flex-1 flex-col px-2 pt-8 pb-2">
-        <div className="flex items-center justify-between text-sm font-semibold tracking-label uppercase">
-          <span>{insight.topic}</span>
-          {/* The date, where the number used to be. A planned article has
-              none, so it shows nothing rather than an invented date. */}
-          {date ? <time dateTime={insight.publishedAt}>{date}</time> : null}
-        </div>
-        <Heading className="mt-3 type-h1">{insight.title}</Heading>
-        <div className="mt-auto flex items-start gap-4 pt-8 type-small">
-          {/* Cut visually only; screen readers still get the whole summary. */}
-          <p className="line-clamp-2 min-w-0 flex-1">
-            {insight.summary}
-          </p>
-          <span
-            aria-hidden="true"
-            className="grid size-11 shrink-0 place-items-center rounded-full border border-current"
+    <FlipCard>
+      <article
+        className={`relative flex h-full flex-col rounded-lg border p-5 ${swatch.surface} ${swatch.ink} ${swatch.edge}`}
+      >
+        {hasPicture ? (
+          <div
+            className={`relative aspect-4/3 overflow-hidden${mask ? "" : " rounded-sm"}`}
+            style={mask ? maskStyle(mask) : undefined}
           >
-            {/* 24px, the icon's own size: the arrow itself is about 15px across,
-                a third of the circle. */}
-            <ArrowRightIcon className="size-6" />
-          </span>
+            {insight.image ? (
+              <Image
+                src={insight.image.src}
+                alt={insight.image.alt}
+                width={insight.image.width}
+                height={insight.image.height}
+                sizes={CARD_SIZES}
+                className="size-full object-cover"
+              />
+            ) : (
+              /* No photo: the shape as a graphic, washed in the ink colour. */
+              <div aria-hidden="true" className={`size-full ${swatch.fill}`} />
+            )}
+          </div>
+        ) : null}
+
+        <div className="flex flex-1 flex-col px-2 pt-8 pb-2">
+          <div className="flex items-center justify-between text-sm font-semibold tracking-label uppercase">
+            <span>{insight.topic}</span>
+            {/* The date, where the number used to be. A planned article has
+                none, so it shows nothing rather than an invented date. */}
+            {date ? <time dateTime={insight.publishedAt}>{date}</time> : null}
+          </div>
+          {/*
+            The whole card is the target, and the LINK is only the title.
+
+            `after:inset-0` stretches an empty pseudo-element over the card, so a
+            click anywhere follows this link — while the accessible name stays the
+            article's title rather than every word on the card, which is what
+            wrapping the whole thing in an anchor would produce. Keyboard focus
+            lands on the title, where the focus ring is legible.
+
+            The overlay is positioned and the copy beneath it is not, so it paints
+            above without a z-index. The arrow's circle IS positioned, which is why
+            it gives up pointer events below.
+          */}
+          <Heading className="mt-3 type-h1">
+            <Link
+              href={insightsHref}
+              className="after:absolute after:inset-0 after:content-['']"
+            >
+              {insight.title}
+            </Link>
+          </Heading>
+          <div className="mt-auto flex items-start gap-4 pt-8 type-small">
+            {/* Cut visually only; screen readers still get the whole summary. */}
+            <p className="line-clamp-2 min-w-0 flex-1">
+              {insight.summary}
+            </p>
+            {/*
+              The mark, and the wipe that fills it on hover.
+
+              Same construction as cta-row.tsx: a panel parked at
+              `-translate-x-full` inside an `overflow-hidden` box, sliding to `0`
+              on the group's hover. A translate rather than a width or a scale, so
+              nothing is laid out twice and the circle never reflows.
+
+              `bg-current` takes the card's ink without any colour plumbing; the
+              arrow then turns the card's own surface colour, so it reads as a
+              hole punched through the fill. See `onFill` in swatches.ts.
+            */}
+            <span
+              aria-hidden="true"
+              className="pointer-events-none relative grid size-11 shrink-0 place-items-center overflow-hidden rounded-full border border-current"
+            >
+              <span
+                className="absolute inset-0 -translate-x-full bg-current transition-transform duration-700 ease-sweep group-hover:translate-x-0 motion-reduce:transition-none"
+              />
+              {/* 24px, the icon's own size: the arrow itself is about 15px across,
+                  a third of the circle. `relative` keeps it above the panel. */}
+              <ArrowRightIcon
+                className={`relative size-6 transition-colors duration-300 motion-reduce:transition-none ${swatch.onFill}`}
+              />
+            </span>
+          </div>
         </div>
-      </div>
-    </article>
+      </article>
+    </FlipCard>
   );
 }

@@ -1,6 +1,7 @@
 import type { CSSProperties } from "react";
 
 import { clientLogos, type ClientLogo } from "@/app/_lib/clients";
+import { maskStyle } from "@/app/_lib/mask";
 
 /**
  * Approved client logos in two rows that drift in opposite directions, fading
@@ -125,30 +126,14 @@ const MOTION = {
 } as const;
 
 /**
- * The logo's outline as a mask. Local rather than borrowed from the header,
- * which stretches its marks to fill (`100% 100%`). A client file with padding
- * around the artwork has to scale down inside its box instead (`contain`).
- */
-function maskFrom(src: string): CSSProperties {
-  return {
-    maskImage: `url("${src}")`,
-    WebkitMaskImage: `url("${src}")`,
-    maskRepeat: "no-repeat",
-    WebkitMaskRepeat: "no-repeat",
-    maskSize: "contain",
-    WebkitMaskSize: "contain",
-    maskPosition: "center",
-    WebkitMaskPosition: "center",
-  };
-}
-
-/**
  * One logo's box: its outline as a mask, its height after the optical
  * correction, and its own ratio for the width.
  */
 function logoStyle(client: ClientLogo): CSSProperties {
   return {
-    ...maskFrom(client.logo),
+    /* `contain`, not the header's stretch: a client file carries padding
+       around its artwork and has to scale down inside its box. */
+    ...maskStyle(client.logo, "contain"),
     height: `calc(var(--logo-height) * ${client.optical ?? 1})`,
     aspectRatio: `${client.width} / ${client.height}`,
   };

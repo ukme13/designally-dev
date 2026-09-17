@@ -3,6 +3,7 @@ import type { CSSProperties } from "react";
 import Button from "@/app/_components/button";
 import HeaderShell from "@/app/_components/header-shell";
 import NavLink from "@/app/_components/nav-link";
+import { maskStyle } from "@/app/_lib/mask";
 import { STAGGER_ENTER } from "@/app/_lib/motion";
 import SocialLinks from "@/app/_components/social-links";
 import { contactHref, mainNavigation } from "@/app/_lib/navigation";
@@ -22,17 +23,6 @@ import { contactHref, mainNavigation } from "@/app/_lib/navigation";
  */
 const WORDMARK_SRC = "/designally-wordmark.svg";
 const MONOGRAM_SRC = "/designally-monogram.svg";
-
-function maskStyle(src: string): CSSProperties {
-  return {
-    maskImage: `url("${src}")`,
-    WebkitMaskImage: `url("${src}")`,
-    maskRepeat: "no-repeat",
-    WebkitMaskRepeat: "no-repeat",
-    maskSize: "100% 100%",
-    WebkitMaskSize: "100% 100%",
-  };
-}
 
 /**
  * Top-bar link. The underline sweeps in on hover only — including on the

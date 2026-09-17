@@ -507,20 +507,104 @@ html[data-intro] [data-site-floating] {
   finding four rules for an attribute this file had only just introduced.
 */
 
+/*
+  On the WRAPPER itself, never on its child — and that is not a tidy-up.
+
+  These rules set the `transition` SHORTHAND, and this file is imported after
+  Tailwind's utilities, so whatever they land on has its `transition-property`
+  and `duration` overwritten. While they sat on `> *` they hit the card's own
+  hover, which asks for `transition-[translate,rotate,scale]`: rotate and scale
+  lost their transition entirely and snapped instead of easing. Reported as
+  "no smooth motion when hover".
+
+  Keeping the reveal on the wrapper and the hover on the card inside it means
+  the two never write the same property on the same element.
+*/
+/*
+  The same arrival the situation cards make, with their own figures — see
+  use-situation-cards.ts, where each is argued for:
+
+    translate  180px up          CARD_ENTRY_Y
+    rotate     -8deg unwinding   CARD_ENTRY_TILT, "a card thrown onto a table
+                                 does not land square"
+    scale      0.82 -> 1         CARD_ENTRY_SCALE, which under the perspective
+                                 reads as approaching rather than growing
+    opacity    0 -> 1            over the FIRST HALF and linear, so the card is
+                                 solid well before it lands
+    duration   1.1s on --ease-in-out, matching the flip exactly so the turn and
+               the settle are one movement
+
+  An earlier version of this had a 24px rise and a 600ms fade and nothing else,
+  which is why it did not read like the cards it was copied from.
+*/
 [data-appear] {
   transition:
-    opacity 600ms var(--ease-out),
-    translate 600ms var(--ease-out);
+    opacity 550ms linear,
+    translate 1100ms var(--ease-in-out),
+    rotate 1100ms var(--ease-in-out),
+    scale 1100ms var(--ease-in-out);
 }
 
 [data-appear="pending"] {
   opacity: 0;
-  translate: 0 1.5rem;
+  translate: 0 180px;
+  rotate: -8deg;
+  scale: 0.82;
 }
 
 [data-appear="shown"] {
   opacity: 1;
   translate: none;
+  rotate: none;
+  scale: none;
+}
+
+/*
+  The stagger, and ONLY where the cards are side by side.
+
+  At `md` the grid is three across, so they arrive together and the 0.18s gap
+  is what makes it a sequence rather than three things moving at once — the
+  same CARD_STAGGER the situation cards use. Below `md` they are stacked and
+  each one already arrives on its own trigger, minutes of scrolling apart; a
+  delay there is not a rhythm, it is just lag before a card that is already on
+  screen starts moving.
+
+  Scoped by media query rather than by a second attribute, so the delay simply
+  is not there when the layout does not want it.
+*/
+@media (min-width: 48rem) {
+  [data-appear] {
+    transition-delay: var(--appear-delay, 0ms);
+  }
+}
+
+/*
+  A card that turns over, the same half-rotation the situation cards make.
+  Paired with flip-card.tsx, which carries the markup and the rest of the
+  reasoning.
+
+  **It rests at 180deg, and that is the whole trick** — copied from
+  use-situation-cards.ts, where the reasoning is written out at length. The face
+  carrying `rotate-y-180` has come round a full 360 by the end, so it faces the
+  reader squarely and is NOT mirrored; that is where the picture belongs. The
+  plain face is what shows at 0, while the card is still turned away, and it
+  carries the card back.
+
+  **The rest state is the DEFAULT, and the start is the exception.** With no
+  JavaScript, a failed hydration or reduced motion there is no `data-appear` at
+  all, so the rule below never applies and the picture is simply face-up. The
+  same fail-safe reveal-on-view.tsx uses: the finished state is what the server
+  sends.
+
+  A half-turn apart, never more. Adding full turns makes it spin and flicker.
+*/
+.flip-card {
+  rotate: y 180deg;
+  transition: rotate 1100ms var(--ease-in-out);
+}
+
+[data-appear="pending"] .flip-card {
+  rotate: y 0deg;
 }
 
 /*

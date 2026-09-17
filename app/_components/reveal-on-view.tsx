@@ -1,8 +1,9 @@
 "use client";
 
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { useRef } from "react";
 
+import { CARD_STAGGER_MS } from "@/app/_lib/motion";
 import { useBeforePaint } from "@/app/_lib/use-before-paint";
 
 /**
@@ -23,9 +24,15 @@ import { useBeforePaint } from "@/app/_lib/use-before-paint";
  * `useBeforePaint`, not `useEffect`: the attribute has to be on the element in
  * the same frame it first paints, or the child appears and is then hidden.
  *
- * Once shown it stays shown — the observer disconnects. Scrolling back up and
- * down again does not replay it, which is right for content rather than for
- * decoration.
+ * **It re-arms when the element goes back BELOW the viewport**, so scrolling up
+ * past it and returning plays the arrival again. Leaving upward — scrolling
+ * down past it — is ignored and it stays as it landed.
+ *
+ * That asymmetry is deliberate and is the same one `use-situation-cards.ts`
+ * makes with `onEnter` and `onLeaveBack`: coming back *down* to something you
+ * have already read should not rewind it, but coming back *up* to something
+ * should find it fresh. The two directions are told apart by the sign of
+ * `boundingClientRect.top` at the moment it stops intersecting.
  *
  * ── The knobs ────────────────────────────────────────────────────────────
  *   when it fires   TRIGGER_MARGIN
@@ -49,14 +56,19 @@ import { useBeforePaint } from "@/app/_lib/use-before-paint";
  */
 const TRIGGER_MARGIN = "0px 0px -12% 0px";
 
+
+
 export default function RevealOnView({
   children,
   className,
+  index = 0,
 }: {
   children: ReactNode;
   /** Applied to the wrapper. It becomes the grid or flex item in the child's
    *  place, so any sizing the child relied on belongs here. */
   className?: string;
+  /** Position in the row, which is what the stagger is spent on. */
+  index?: number;
 }) {
   const ref = useRef<HTMLDivElement>(null);
 
@@ -73,9 +85,18 @@ export default function RevealOnView({
 
     const observer = new IntersectionObserver(
       ([entry]) => {
-        if (!entry.isIntersecting) return;
-        element.dataset.appear = "shown";
-        observer.disconnect();
+        if (entry.isIntersecting) {
+          element.dataset.appear = "shown";
+          return;
+        }
+
+        /* Gone, but which way? A positive `top` means the element sits BELOW
+           the viewport, so the reader has scrolled up off it and should meet
+           the arrival again on the way back down. A negative one means it has
+           passed off the top, already seen — leave it as it landed. */
+        if (entry.boundingClientRect.top > 0) {
+          element.dataset.appear = "pending";
+        }
       },
       { rootMargin: TRIGGER_MARGIN, threshold: 0 },
     );
@@ -88,7 +109,14 @@ export default function RevealOnView({
   }, []);
 
   return (
-    <div ref={ref} className={className}>
+    /* The delay is a custom property rather than a class, the same way
+       masked-text.tsx carries `--reveal-delay`: the value is per item and a
+       class cannot be assembled at runtime without Tailwind failing to see it. */
+    <div
+      ref={ref}
+      className={className}
+      style={{ "--appear-delay": `${index * CARD_STAGGER_MS}ms` } as CSSProperties}
+    >
       {children}
     </div>
   );

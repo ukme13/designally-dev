@@ -19,6 +19,17 @@ export const legalNavigation: NavLink[] = [
 export const contactHref = "/contact/";
 
 /**
+ * Where an insight card goes.
+ *
+ * The INDEX, deliberately, because there is nowhere else yet: `app/insights/`
+ * holds only `page.tsx`, and the static articles are planned rather than
+ * written, so they carry no slug — the `Insight` type says only insights from
+ * Sanity have one. When an article route exists this becomes the article's own
+ * URL and the cards stop all pointing at the same page.
+ */
+export const insightsHref = "/insights/";
+
+/**
  * Draft contact address carried over from the existing homepage.
  * Confirm before launch — see docs/product/WEBSITE-BRIEF.md.
  */
