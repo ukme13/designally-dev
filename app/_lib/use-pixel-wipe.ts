@@ -167,6 +167,22 @@ const SECTION_FILL_VH = 75;
 const TRANSITION_START = `bottom ${100 + START_LEAD_VH}%`;
 const TRANSITION_END = `bottom ${100 - SECTION_FILL_VH}%`;
 
+/**
+ * Every inline property GSAP may leave on a cell, removed by hand on cleanup.
+ *
+ * `opacity` is set once and `transform` carries the scale. `translate`,
+ * `rotate` and `scale` are here as well because GSAP neutralises the standalone
+ * CSS properties inline when it detects them, so a cell can carry those too.
+ * Removing a property that is not set does nothing and reads nothing, so an
+ * unused entry costs nothing.
+ *
+ * The cells carry no inline style from React — only a `className` — so
+ * everything inline on them is GSAP's and safe to remove. If a cell ever gains
+ * an inline style of its own, this list is still correct; a blanket
+ * `cssText = ""` would not be.
+ */
+const GSAP_WRITES = ["opacity", "transform", "translate", "rotate", "scale"] as const;
+
 export function usePixelWipe({
   layerRef,
   gridRef,
@@ -285,9 +301,48 @@ export function usePixelWipe({
       revert = () => {
         timeline.scrollTrigger?.kill();
         timeline.kill();
-        /* Whatever state the wipe was in, the cells go back to invisible — the
-           stylesheet's own `opacity-0` governs them again. */
-        gsap.set(cells, { clearProps: "all" });
+        /*
+          The cells go back to invisible — the stylesheet's own `opacity-0`
+          governs them again — WITHOUT asking GSAP to do it.
+
+          **This was `gsap.set(cells, { clearProps: "all" })`, and on a phone it
+          froze the page for about six seconds on every load.** Found with a
+          Safari timeline recording on 17 September 2026: 97% of CPU samples in
+          GSAP's `getComputedStyle` wrapper, reached from this line. For EACH
+          cell, clearProps writes the element's inline style away and then
+          immediately re-reads its computed transform — a write followed by a
+          read, which forces a full-page style recalculation and layout. One per
+          cell, back to back: ~1,256 forced layouts across the page's two wipes
+          at ~4.3ms each on the device. No frame could be painted until it
+          finished, so everything that waits on a rendering step — the
+          showreel's IntersectionObservers, the hero's cue — waited too, and the
+          showreel's entrance only began after six seconds of a frozen screen.
+
+          It ran on page load, not just on unmount, because this effect
+          depends on `columns` and `rows`: the grid settles after the first
+          timeline is built, so that timeline is torn down straight away.
+
+          Plain writes cannot force a layout on their own. The browser batches
+          every one of these into a single recalculation at the next frame,
+          however many cells there are. Confirmed on the device: the stall is
+          gone and the entrance plays immediately.
+
+          The `_gsap` cache has to go too. GSAP keeps each element's parsed
+          transform on it, and after these writes that record no longer matches
+          the element, so a rebuild would start from stale values. Dropped, the
+          next `gsap.set` parses each cell fresh, exactly as the first build
+          does — which is cheap. It is the re-read after a CLEAR that is
+          expensive, not the first read.
+
+          `Reflect.deleteProperty` rather than `delete`: the cache is GSAP's own
+          expando, not part of the element's type.
+        */
+        for (const cell of cells) {
+          for (const property of GSAP_WRITES) {
+            cell.style.removeProperty(property);
+          }
+          Reflect.deleteProperty(cell, "_gsap");
+        }
       };
     };
 
